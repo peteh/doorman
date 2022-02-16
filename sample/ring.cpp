@@ -22,6 +22,8 @@
 //const uint32_t Klingeln = 0x0361987F; // serial: 36198 HEX = 221592 change to your seriall.
 const uint32_t Klingeln = 0x1B8F9A41; // serial: 36198 HEX = 221592 change to your seriall.
 
+bool ledCounter = false;
+
 void sendeProtokollHEX(uint32_t protokoll)
 {
     int length = 16;
@@ -52,10 +54,16 @@ void sendeProtokollHEX(uint32_t protokoll)
 void setup()
 {
     pinMode(outputPin, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
+
+    delay(1000);
+    
     sendeProtokollHEX(Klingeln);
 }
 
 void loop()
 {
-  delay(10000000);
+  digitalWrite(LED_BUILTIN, ledCounter);
+  ledCounter = !ledCounter;
+  delay(2000);
 }

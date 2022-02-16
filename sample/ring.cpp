@@ -24,7 +24,7 @@ const uint32_t Klingeln = 0x1B8F9A41; // serial: 36198 HEX = 221592 change to yo
 
 bool ledCounter = false;
 
-void sendeProtokollHEX(uint32_t protokoll)
+void sendToBus(uint32_t protokoll)
 {
     int length = 16;
     byte checksm = 1;
@@ -58,7 +58,7 @@ void setup()
 
     delay(1000);
     
-    sendeProtokollHEX(Klingeln);
+    sendToBus(Klingeln);
 }
 
 void loop()

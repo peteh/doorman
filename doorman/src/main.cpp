@@ -29,31 +29,58 @@ char wifi_ssid[] = "iot";        // your network SSID (name)
 char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use as key for WEP)
 
 // define your default values here, if there are different values in config.json, they are overwritten.
-char mqtt_topic[34] = "home/flur/klingel";
+char mqtt_topic[60] = "home/flur/klingel/monitor";
+char mqtt_command_topic[60] = "home/flur/klingel/commands";
 char mqtt_client[16] = "klingel";
-
 
 // flag for saving data
 bool shouldSaveConfig = false;
 
-#define inputPin 14 // D5
-#define startBit 6
-#define oneBit 4
-#define zeroBit 2
+#define PIN_BUS_READ D5
+#define PIN_BUS_WRITE D0
+#define START_BIT 6
+#define ONE_BIT 4
+#define ZERO_BIT 2
 
 volatile uint32_t CMD = 0;
 volatile uint8_t lengthCMD = 0;
 volatile bool cmdReady;
+volatile bool sending = false;
+
+void sendToBus(uint32_t data);
+
+String macToStr(const uint8_t *mac)
+{
+    String result;
+    for (int i = 0; i < 6; ++i)
+    {
+        result += String(mac[i], 16);
+        if (i < 5)
+            result += ':';
+    }
+    return result;
+}
+
+String composeClientID()
+{
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    String clientId;
+    clientId += "esp-";
+    clientId += macToStr(mac);
+    return clientId;
+}
 
 void connectToMqtt()
 {
     Serial.print("\nconnecting to MQTT...");
     // while (!client.connect(mqtt_client, mqtt_user, mqtt_pass))
-    while (!client.connect("mqttclientid"))
+    while (!client.connect(composeClientID().c_str()))
     {
         Serial.print(".");
         delay(5000);
     }
+    client.subscribe(mqtt_command_topic, 0);
 }
 
 void connectToWifi()
@@ -64,11 +91,7 @@ void connectToWifi()
         Serial.print(".");
         delay(1000);
     }
-
-    IPAddress ip(192, 168, 42, 3); // The remote ip to ping
-
     connectToMqtt();
-
     Serial.println("\nconnected!");
 }
 
@@ -78,13 +101,6 @@ void sendMessage()
     client.publish(mqtt_topic, "triggered");
     // delay(100);
     // client.disconnect();
-}
-
-// callback notifying us of the need to save config
-void saveConfigCallback()
-{
-    Serial.println("Should save config");
-    shouldSaveConfig = true;
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
@@ -97,10 +113,20 @@ void callback(char *topic, byte *payload, unsigned int length)
         Serial.print((char)payload[i]);
     }
     Serial.println();
+    // TODO length check
+    char temp[32];
+    strncpy ( temp, (char*) payload, length);
+    uint32_t number = (uint32_t)strtoul(temp, NULL, 16);
+    sendToBus(number);
+    Serial.println(number);
 }
 
-void ICACHE_RAM_ATTR analyzeCMD()
+void IRAM_ATTR analyzeCMD()
 {
+    if(sending)
+    {
+        return;
+    }
     static uint32_t curCMD;
     static uint32_t usLast;
     static byte curCRC;
@@ -213,12 +239,42 @@ void printHEX(uint32_t DATA)
     }
 }
 
+void sendToBus(uint32_t data)
+{
+    sending = true;
+    int length = 16;
+    byte checksm = 1;
+    byte firstBit = 0;
+    if (data > 0xFFFF)
+    {
+        length = 32;
+        firstBit = 1;
+    }
+    digitalWrite(PIN_BUS_WRITE, HIGH);
+    delay(START_BIT);
+    digitalWrite(PIN_BUS_WRITE, !digitalRead(PIN_BUS_WRITE));
+    delay(firstBit ? ONE_BIT : ZERO_BIT);
+    int curBit = 0;
+    for (byte i = length; i > 0; i--)
+    {
+        curBit = bitRead(data, i - 1);
+        digitalWrite(PIN_BUS_WRITE, !digitalRead(PIN_BUS_WRITE));
+        delay(curBit ? ONE_BIT : ZERO_BIT);
+        checksm ^= curBit;
+    }
+    digitalWrite(PIN_BUS_WRITE, !digitalRead(PIN_BUS_WRITE));
+    delay(checksm ? ONE_BIT : ZERO_BIT);
+    digitalWrite(PIN_BUS_WRITE, LOW);
+    sending = false;
+}
+
 void setup()
 {
     Serial.begin(115200);
-
-    pinMode(inputPin, INPUT);
-    attachInterrupt(digitalPinToInterrupt(inputPin), analyzeCMD, CHANGE);
+    pinMode(PIN_BUS_WRITE, OUTPUT);
+    pinMode(PIN_BUS_READ, INPUT);
+    
+    attachInterrupt(digitalPinToInterrupt(PIN_BUS_READ), analyzeCMD, CHANGE);
     // read configuration from FS json
 
     WiFi.mode(WIFI_STA);
@@ -239,21 +295,21 @@ void setup()
     client.setServer("192.168.42.2", 1883);
     client.setCallback(callback);
 
+    // Port defaults to 8266
+    // ArduinoOTA.setPort(8266);
 
-  // Port defaults to 8266
-  // ArduinoOTA.setPort(8266);
+    // Hostname defaults to esp8266-[ChipID]
+    // ArduinoOTA.setHostname("myesp8266");
 
-  // Hostname defaults to esp8266-[ChipID]
-  // ArduinoOTA.setHostname("myesp8266");
+    // No authentication by default
+    // ArduinoOTA.setPassword("admin");
 
-  // No authentication by default
-  // ArduinoOTA.setPassword("admin");
+    // Password can be set with it's md5 value as well
+    // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+    // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
 
-  // Password can be set with it's md5 value as well
-  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
-
-  ArduinoOTA.onStart([]() {
+    ArduinoOTA.onStart([]()
+                       {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH) {
       type = "sketch";
@@ -262,15 +318,13 @@ void setup()
     }
 
     // NOTE: if updating FS this would be the place to unmount FS using FS.end()
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.println("Start updating " + type); });
+    ArduinoOTA.onEnd([]()
+                     { Serial.println("\nEnd"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+    ArduinoOTA.onError([](ota_error_t error)
+                       {
     Serial.printf("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) {
       Serial.println("Auth Failed");
@@ -282,9 +336,8 @@ void setup()
       Serial.println("Receive Failed");
     } else if (error == OTA_END_ERROR) {
       Serial.println("End Failed");
-    }
-  });
-  ArduinoOTA.begin();
+    } });
+    ArduinoOTA.begin();
 
     connectToWifi();
 }

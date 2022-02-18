@@ -22,6 +22,9 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
+#include <TCSBus.h>
+#include <TriggerPatternRecognition.h>
+
 WiFiClient net;
 PubSubClient client(net);
 
@@ -30,24 +33,32 @@ char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use a
 
 // define your default values here, if there are different values in config.json, they are overwritten.
 char mqtt_topic[60] = "home/flur/klingel/monitor";
+char mqtt_topic_pattern[60] = "home/flur/klingel/pattern";
 char mqtt_command_topic[60] = "home/flur/klingel/commands";
 char mqtt_client[16] = "klingel";
 
-// flag for saving data
-bool shouldSaveConfig = false;
+// commands
+// 0x1100 door opener if the handset is not lifted up
+// 0x1180 door opener if the handset is lifted up
+// 0x1B8F9A41 own door bell at the flat door
+// 0x0B8F9A80 own door bell at the main door
+
+//const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
+const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
+const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // use your bell code here
+
 
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D0
-#define START_BIT 6
-#define ONE_BIT 4
-#define ZERO_BIT 2
+
 
 volatile uint32_t CMD = 0;
 volatile uint8_t lengthCMD = 0;
 volatile bool cmdReady;
 volatile bool sending = false;
 
-void sendToBus(uint32_t data);
+TriggerPatternRecognition patternRecognition;
+TCSBusWriter tcsWriter(PIN_BUS_WRITE);
 
 String macToStr(const uint8_t *mac)
 {
@@ -95,12 +106,18 @@ void connectToWifi()
     Serial.println("\nconnected!");
 }
 
-void sendMessage()
+void sendPatternDetected()
 {
     // connectToMqtt();
-    client.publish(mqtt_topic, "triggered");
+    client.publish(mqtt_topic_pattern, "patternDetected");
     // delay(100);
     // client.disconnect();
+}
+
+void openDoor()
+{
+    delay(1000);
+    tcsWriter.write(CODE_DOOR_OPENER);
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
@@ -117,7 +134,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     char temp[32];
     strncpy ( temp, (char*) payload, length);
     uint32_t number = (uint32_t)strtoul(temp, NULL, 16);
-    sendToBus(number);
+    tcsWriter.write(number);
     Serial.println(number);
 }
 
@@ -238,45 +255,20 @@ void printHEX(uint32_t DATA)
         mask = mask >> 4;
     }
 }
-
-void sendToBus(uint32_t data)
-{
-    sending = true;
-    int length = 16;
-    byte checksm = 1;
-    byte firstBit = 0;
-    if (data > 0xFFFF)
-    {
-        length = 32;
-        firstBit = 1;
-    }
-    digitalWrite(PIN_BUS_WRITE, HIGH);
-    delay(START_BIT);
-    digitalWrite(PIN_BUS_WRITE, !digitalRead(PIN_BUS_WRITE));
-    delay(firstBit ? ONE_BIT : ZERO_BIT);
-    int curBit = 0;
-    for (byte i = length; i > 0; i--)
-    {
-        curBit = bitRead(data, i - 1);
-        digitalWrite(PIN_BUS_WRITE, !digitalRead(PIN_BUS_WRITE));
-        delay(curBit ? ONE_BIT : ZERO_BIT);
-        checksm ^= curBit;
-    }
-    digitalWrite(PIN_BUS_WRITE, !digitalRead(PIN_BUS_WRITE));
-    delay(checksm ? ONE_BIT : ZERO_BIT);
-    digitalWrite(PIN_BUS_WRITE, LOW);
-    sending = false;
-}
-
 void setup()
 {
     Serial.begin(115200);
-    pinMode(PIN_BUS_WRITE, OUTPUT);
+    tcsWriter.begin();
+
     pinMode(PIN_BUS_READ, INPUT);
     
     attachInterrupt(digitalPinToInterrupt(PIN_BUS_READ), analyzeCMD, CHANGE);
     // read configuration from FS json
 
+    // configure pattern detection
+    patternRecognition.addStep(1000);
+    patternRecognition.addStep(1000);
+    
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
 
@@ -356,6 +348,14 @@ void loop()
     ArduinoOTA.handle();
     if (cmdReady)
     {
+        if(CMD == CODE_PATTERN_DETECT)
+        {
+            if(patternRecognition.trigger())
+            {
+                openDoor();
+                sendPatternDetected();
+            }
+        }
         cmdReady = 0;
         Serial.write(0x01);
         Serial.print("$");

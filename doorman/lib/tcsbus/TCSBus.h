@@ -1,35 +1,65 @@
 #pragma once
 #include <Arduino.h>
 
-#define START_BIT 6
-#define ONE_BIT 4
-#define ZERO_BIT 2
+#define TCS_MSG_START_MS 6 // a new message
+#define TCS_ONE_BIT_MS 4   // a 1-bit is 4ms long
+#define TCS_ZERO_BIT_MS 2  // a 0-bit is 2ms long
 
+/**
+ * @brief Helper function to print human readable hex message of tcs data to serial
+ * 
+ * @param data the data to print
+ */
+void printHEX(uint32_t data);
 
 
 
 class TCSBusReader
 {
 public:
+    /**
+     * @brief A reader class to read messages from TCS bus systems.
+     *
+     * @param readPin the pin that is connected to the data line of the TCS bus.
+     */
     TCSBusReader(uint8_t readPin);
-    void begin();
-    bool hasCommand();
-    void setEnabled(bool enabled);
-    uint32_t read();
-    static void IRAM_ATTR analyzeCMD();
 
-CMD
+    /**
+     * @brief Must be called once during setup() phase
+     */
+    void begin();
+
+    /**
+     * @brief Returns true if a new command has been received from the bus.
+     *
+     * @return true if a new command has been received.
+     * @return false if no command is available.
+     */
+    bool hasCommand();
+
+    /**
+     * @brief Reads the last message from the bus and also resets the #hasCommand() flag.
+     *
+     * @return uint32_t the last command from the bus
+     */
+    uint32_t read();
 
 private:
-    static bool s_enabled;
-    
+    /**
+     * @brief The interrupt method that counts the time for each high 
+     * or low bit and connects it to one big command. 
+     */
+    static void IRAM_ATTR analyzeCMD();
+
+    static volatile uint32_t s_cmd;
+    static volatile uint8_t s_cmdLength;
+    static volatile bool s_cmdReady;
     uint8_t m_readPin;
 };
 
 class TCSBusWriter
 {
 public:
-
     static volatile bool s_writing;
 
     /**
@@ -47,7 +77,7 @@ public:
 
     /**
      * @brief Returns true if it is currently writing to the bus
-     * 
+     *
      * @return true if we are writing to the bus
      * @return false if we are not writing to the bus
      */

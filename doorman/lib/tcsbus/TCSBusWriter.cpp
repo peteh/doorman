@@ -19,29 +19,30 @@ bool TCSBusWriter::isWriting()
 
 void TCSBusWriter::write(uint32_t data)
 {
+    // this is magic from https://github.com/atc1441/TCSintercomArduino
     TCSBusWriter::s_writing = true;
     int length = 16;
     byte checksm = 1;
-    byte firstBit = 0;
+    bool isLongMessage = false;
     if (data > 0xFFFF)
     {
         length = 32;
-        firstBit = 1;
+        isLongMessage = 1;
     }
     digitalWrite(m_writePin, HIGH);
-    delay(START_BIT);
+    delay(TCS_MSG_START_MS);
     digitalWrite(m_writePin, !digitalRead(m_writePin));
-    delay(firstBit ? ONE_BIT : ZERO_BIT);
+    delay(isLongMessage ? TCS_ONE_BIT_MS : TCS_ZERO_BIT_MS);
     int curBit = 0;
     for (byte i = length; i > 0; i--)
     {
         curBit = bitRead(data, i - 1);
         digitalWrite(m_writePin, !digitalRead(m_writePin));
-        delay(curBit ? ONE_BIT : ZERO_BIT);
+        delay(curBit ? TCS_ONE_BIT_MS : TCS_ZERO_BIT_MS);
         checksm ^= curBit;
     }
     digitalWrite(m_writePin, !digitalRead(m_writePin));
-    delay(checksm ? ONE_BIT : ZERO_BIT);
+    delay(checksm ? TCS_ONE_BIT_MS : TCS_ZERO_BIT_MS);
     digitalWrite(m_writePin, LOW);
     TCSBusWriter::s_writing = false;
 }

@@ -35,6 +35,7 @@ char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use a
 char mqtt_topic[60] = "home/flur/klingel/monitor";
 char mqtt_topic_pattern[60] = "home/flur/klingel/pattern";
 char mqtt_command_topic[60] = "home/flur/klingel/commands";
+// TODO: use mqtt messages according to standard for push switches
 char mqtt_client[16] = "klingel";
 
 // commands
@@ -120,7 +121,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
-    for (int i = 0; i < length; i++)
+    for (unsigned int i = 0; i < length; i++)
     {
         Serial.print((char)payload[i]);
     }
@@ -135,17 +136,6 @@ void callback(char *topic, byte *payload, unsigned int length)
 }
 
 
-void printHEX(uint32_t data)
-{
-    uint8_t numChars = data > 0xFFFF ? 8 : 4;
-    uint32_t mask = 0x0000000F;
-    mask = mask << 4 * (numChars - 1);
-    for (uint32_t i = numChars; i > 0; --i)
-    {
-        Serial.print(((data & mask) >> (i - 1) * 4), HEX);
-        mask = mask >> 4;
-    }
-}
 void setup()
 {
     Serial.begin(115200);

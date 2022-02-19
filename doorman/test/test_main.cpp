@@ -68,8 +68,6 @@ void setup()
     RUN_TEST(test_GivenPattern_WhenPatternSuccessful_ThenTrigger);
     RUN_TEST(test_Given1s1s1sPattern_WhenPatternSuccessful_ThenTrigger);
     RUN_TEST(test_Given2s3sPattern_WhenPatternWrong_ThenDontTrigger);
-    // RUN_TEST(test_function_calculator_multiplication);
-    // RUN_TEST(test_function_calculator_division);
     UNITY_END();
 }
 

@@ -16,5 +16,5 @@ Reverse Engineering video: <https://www.youtube.com/watch?v=xFLoauqj9yA&t=11s><b
 <https://github.com/atc1441/TCSintercomArduino>
 
 **tcs-monitor** an mqtt monitor for listening to the TCS bus<br />
-Blog Post: <https://blog.syralist.de/posts/smarthome/klingel/>
+Blog Post: <https://blog.syralist.de/posts/smarthome/klingel/><br />
 <https://github.com/Syralist/tcs-monitor>

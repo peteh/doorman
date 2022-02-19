@@ -25,10 +25,19 @@ PubSubClient client(net);
 char wifi_ssid[] = "iot";        // your network SSID (name)
 char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use as key for WEP)
 
+// mqtt server
+char mqtt_server[255] = "192.168.42.2"; 
+uint16_t mqtt_port = 1883;
+char mqtt_user[60] = "";
+char mqtt_pass[60] = "";
+
+
 // define your default values here, if there are different values in config.json, they are overwritten.
 char mqtt_topic[60] = "home/flur/klingel/monitor";
 char mqtt_topic_pattern[60] = "home/flur/klingel/pattern";
 char mqtt_command_topic[60] = "home/flur/klingel/commands";
+
+
 // TODO: use mqtt messages according to standard for push switches
 
 // commands
@@ -38,9 +47,11 @@ char mqtt_command_topic[60] = "home/flur/klingel/commands";
 // 0x0B8F9A80 own door bell at the main door
 
 //const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
-const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
-const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // use your bell code here
+const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code0x0B8F9A80 here
+const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // code to detect the pattern on, probably use your main door bell code here
+const uint32_t CODE_PARTY_MODE = 0x0B8F9A80; // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
 
+bool partyMode = false;
 
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D0
@@ -110,8 +121,6 @@ void setup()
     Serial.begin(115200);
     tcsWriter.begin();
     tcsReader.begin();
-    //attachInterrupt(digitalPinToInterrupt(PIN_BUS_READ), analyzeCMD, CHANGE);
-    // read configuration from FS json
 
     // configure pattern detection
     patternRecognition.addStep(1000);
@@ -128,7 +137,7 @@ void setup()
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    client.setServer("192.168.42.2", 1883);
+    client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
 
     // Port defaults to 8266
@@ -193,6 +202,13 @@ void loop()
     if (tcsReader.hasCommand())
     {
         uint32_t cmd = tcsReader.read();
+
+        if(partyMode && cmd == CODE_PARTY_MODE)
+        {
+            // we have party, let everybody in
+            openDoor();
+        }
+
         if(cmd == CODE_PATTERN_DETECT)
         {
             if(patternRecognition.trigger())

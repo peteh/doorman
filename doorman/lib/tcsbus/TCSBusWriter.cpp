@@ -1,5 +1,7 @@
 #include "TCSBus.h"
 
+volatile bool TCSBusWriter::s_writing = false;
+
 TCSBusWriter::TCSBusWriter(uint8_t writePin)
 :m_writePin(writePin)
 {
@@ -10,8 +12,14 @@ void TCSBusWriter::begin()
     pinMode(m_writePin, OUTPUT);
 }
 
+bool TCSBusWriter::isWriting()
+{
+    return s_writing;
+}
+
 void TCSBusWriter::write(uint32_t data)
 {
+    TCSBusWriter::s_writing = true;
     int length = 16;
     byte checksm = 1;
     byte firstBit = 0;
@@ -35,4 +43,5 @@ void TCSBusWriter::write(uint32_t data)
     digitalWrite(m_writePin, !digitalRead(m_writePin));
     delay(checksm ? ONE_BIT : ZERO_BIT);
     digitalWrite(m_writePin, LOW);
+    TCSBusWriter::s_writing = false;
 }

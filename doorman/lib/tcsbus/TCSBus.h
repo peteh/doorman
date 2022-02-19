@@ -18,9 +18,7 @@ public:
     uint32_t read();
     static void IRAM_ATTR analyzeCMD();
 
-static volatile uint32_t s_cmd;
-static volatile uint8_t s_lengthCMD;
-static volatile bool s_cmdReady;
+CMD
 
 private:
     static bool s_enabled;

@@ -5,6 +5,9 @@
 #define ONE_BIT 4
 #define ZERO_BIT 2
 
+
+
+
 class TCSBusReader
 {
 public:
@@ -13,14 +16,24 @@ public:
     bool hasCommand();
     void setEnabled(bool enabled);
     uint32_t read();
+    static void IRAM_ATTR analyzeCMD();
+
+static volatile uint32_t s_cmd;
+static volatile uint8_t s_lengthCMD;
+static volatile bool s_cmdReady;
 
 private:
-    static bool m_enabled;
+    static bool s_enabled;
+    
+    uint8_t m_readPin;
 };
 
 class TCSBusWriter
 {
 public:
+
+    static volatile bool s_writing;
+
     /**
      * @brief Allows to write to the TCS Bus.
      *
@@ -33,6 +46,14 @@ public:
      *
      */
     void begin();
+
+    /**
+     * @brief Returns true if it is currently writing to the bus
+     * 
+     * @return true if we are writing to the bus
+     * @return false if we are not writing to the bus
+     */
+    static bool isWriting();
 
     /**
      * @brief Writes the data to the bus. Can be a short command with 16 bits or a

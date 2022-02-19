@@ -11,7 +11,7 @@ Doorman is an ESP8266 based mqtt bridge for TCS door control systems (https://ww
 ## Credits
 Doorman is heavily built on the code and the information of the following two projects: 
 
-**TCSIntercomArduino** different methods to read and write from TCS bus<br />
+**TCSIntercomArduino** different methods to read from and write to TCS bus<br />
 Reverse Engineering video: <https://www.youtube.com/watch?v=xFLoauqj9yA&t=11s><br />
 <https://github.com/atc1441/TCSintercomArduino>
 

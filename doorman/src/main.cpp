@@ -13,17 +13,11 @@
 #include <ArduinoOTA.h>
 
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
-
 #include <PubSubClient.h>
-
-#include <ESP8266Ping.h>
-
-#include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
-
 #include <TCSBus.h>
 #include <TriggerPatternRecognition.h>
+
+#include "utils.h"
 
 WiFiClient net;
 PubSubClient client(net);
@@ -36,7 +30,6 @@ char mqtt_topic[60] = "home/flur/klingel/monitor";
 char mqtt_topic_pattern[60] = "home/flur/klingel/pattern";
 char mqtt_command_topic[60] = "home/flur/klingel/commands";
 // TODO: use mqtt messages according to standard for push switches
-char mqtt_client[16] = "klingel";
 
 // commands
 // 0x1100 door opener if the handset is not lifted up
@@ -56,58 +49,34 @@ TriggerPatternRecognition patternRecognition;
 TCSBusWriter tcsWriter(PIN_BUS_WRITE);
 TCSBusReader tcsReader(PIN_BUS_READ);
 
-String macToStr(const uint8_t *mac)
-{
-    String result;
-    for (int i = 0; i < 6; ++i)
-    {
-        result += String(mac[i], 16);
-        if (i < 5)
-            result += ':';
-    }
-    return result;
-}
-
-String composeClientID()
-{
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    String clientId;
-    clientId += "esp-";
-    clientId += macToStr(mac);
-    return clientId;
-}
-
 void connectToMqtt()
 {
     Serial.print("\nconnecting to MQTT...");
+    // TODO: add security settings back to mqtt
     // while (!client.connect(mqtt_client, mqtt_user, mqtt_pass))
     while (!client.connect(composeClientID().c_str()))
     {
         Serial.print(".");
-        delay(5000);
+        delay(4000);
     }
     client.subscribe(mqtt_command_topic, 0);
 }
 
 void connectToWifi()
 {
-    Serial.print("checking wifi...");
+    Serial.print("Connecting to wifi...");
+    // TODO: really forever? What if we want to go back to autoconnect?
     while (WiFi.status() != WL_CONNECTED)
     {
         Serial.print(".");
         delay(1000);
     }
-    connectToMqtt();
-    Serial.println("\nconnected!");
+    Serial.println("\n Wifi connected!");
 }
 
 void sendPatternDetected()
 {
-    // connectToMqtt();
     client.publish(mqtt_topic_pattern, "patternDetected");
-    // delay(100);
-    // client.disconnect();
 }
 
 void openDoor()
@@ -129,10 +98,10 @@ void callback(char *topic, byte *payload, unsigned int length)
     // TODO length check
     char temp[32];
     strncpy ( temp, (char*) payload, length);
-    uint32_t number = (uint32_t)strtoul(temp, NULL, 16);
+    uint32_t data = (uint32_t)strtoul(temp, NULL, 16);
     
-    tcsWriter.write(number);
-    Serial.println(number);
+    tcsWriter.write(data);
+    Serial.println(data);
 }
 
 
@@ -151,14 +120,10 @@ void setup()
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
 
-    // Wait for connection
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("");
-    Serial.print("Node7b: Connected to ");
+    connectToWifi();
+
+    Serial.println();
+    Serial.print("Connected to SSID: ");
     Serial.println(wifi_ssid);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
@@ -225,8 +190,6 @@ void loop()
     }
     client.loop();
     ArduinoOTA.handle();
-    //if (cmdReady)
-    //if (TCSBusReader::s_cmdReady)
     if (tcsReader.hasCommand())
     {
         uint32_t cmd = tcsReader.read();
@@ -238,7 +201,7 @@ void loop()
                 sendPatternDetected();
             }
         }
-        Serial.print("0x");
+        Serial.print("TCS Bus: 0x");
         printHEX(cmd);
         Serial.println();
 

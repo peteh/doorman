@@ -64,6 +64,7 @@ void setup()
     // if board doesn't support software reset via Serial.DTR/RTS
     delay(2000);
 
+    pinMode(BUILTIN_LED, OUTPUT);
     UNITY_BEGIN();
     RUN_TEST(test_GivenPattern_WhenPatternSuccessful_ThenTrigger);
     RUN_TEST(test_Given1s1s1sPattern_WhenPatternSuccessful_ThenTrigger);
@@ -73,5 +74,6 @@ void setup()
 
 void loop()
 {
+    digitalWrite(BUILTIN_LED, !digitalRead(BUILTIN_LED));
     delay(1000);
 }

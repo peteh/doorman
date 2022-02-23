@@ -26,39 +26,47 @@ char wifi_ssid[] = "iot";        // your network SSID (name)
 char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use as key for WEP)
 
 // mqtt server
-char mqtt_server[255] = "192.168.42.2"; 
+char mqtt_server[255] = "192.168.42.100";
 uint16_t mqtt_port = 1883;
 char mqtt_user[60] = "";
 char mqtt_pass[60] = "";
 
-
 // define your default values here, if there are different values in config.json, they are overwritten.
 char mqtt_topic[60] = "home/flur/klingel/monitor";
-char mqtt_topic_pattern[60] = "home/flur/klingel/pattern";
 char mqtt_command_topic[60] = "home/flur/klingel/commands";
 
-
-// TODO: use mqtt messages according to standard for push switches
 
 // commands
 // 0x1100 door opener if the handset is not lifted up
 // 0x1180 door opener if the handset is lifted up
+
 // 0x1B8F9A41 own door bell at the flat door
 // 0x0B8F9A80 own door bell at the main door
 
-//const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
-const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code0x0B8F9A80 here
+// const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
+const uint32_t CODE_DOOR_OPENER = 0x1100;        // use door opener code here (was 0x1100 for mine)
 const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // code to detect the pattern on, probably use your main door bell code here
-const uint32_t CODE_PARTY_MODE = 0x0B8F9A80; // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
+const uint32_t CODE_PARTY_MODE = 0x0B8F9A80;     // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
+
+const uint32_t CODE_DOOR_BELL = 0x1B8F9A41;       // flat door
+const uint32_t CODE_FRONT_DOOR_BELL = 0x0B8F9A80; // front door
 
 bool partyMode = false;
 
 #define PIN_BUS_READ D5
-#define PIN_BUS_WRITE D0
+#define PIN_BUS_WRITE D6
 
 TriggerPatternRecognition patternRecognition;
 TCSBusWriter tcsWriter(PIN_BUS_WRITE);
 TCSBusReader tcsReader(PIN_BUS_READ);
+String mqttRootTopic = "";
+
+bool ledState = false;
+
+// TODO: figure out mqtt topics
+//  switches: front door, flat door, door opener
+//  bus: state, cmd
+// TODO: home assistant auto config
 
 void connectToMqtt()
 {
@@ -71,6 +79,9 @@ void connectToMqtt()
         delay(4000);
     }
     client.subscribe(mqtt_command_topic, 0);
+
+    // TODO: how to handle going online? 
+    client.publish((mqttRootTopic).c_str(), "online");
 }
 
 void connectToWifi()
@@ -87,7 +98,22 @@ void connectToWifi()
 
 void sendPatternDetected()
 {
-    client.publish(mqtt_topic_pattern, "patternDetected");
+    client.publish((mqttRootTopic + "/pattern/state").c_str(), "on");
+    client.publish((mqttRootTopic + "/pattern/state").c_str(), "off");
+}
+
+void publishDoorBell()
+{
+    // TODO: topic
+    client.publish((mqttRootTopic + "/doorbell/state").c_str(), "on");
+    client.publish((mqttRootTopic + "/doorbell/state").c_str(), "off");
+}
+
+void publishFrontDoorBell()
+{
+    // TODO: topic
+    client.publish((mqttRootTopic + "/frontdoorbell/state").c_str(), "on");
+    client.publish((mqttRootTopic + "/frontdoorbell/state").c_str(), "off");
 }
 
 void openDoor()
@@ -108,25 +134,33 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.println();
     // TODO length check
     char temp[32];
-    strncpy ( temp, (char*) payload, length);
+    strncpy(temp, (char *)payload, length);
     uint32_t data = (uint32_t)strtoul(temp, NULL, 16);
-    
+
     tcsWriter.write(data);
     Serial.println(data);
 }
 
-
 void setup()
 {
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, ledState);
+    
+    // mqtt root topic
+    mqttRootTopic = "home/" + composeClientID();
+
     Serial.begin(115200);
     tcsWriter.begin();
     tcsReader.begin();
 
+    
+
     // configure pattern detection
     patternRecognition.addStep(1000);
     patternRecognition.addStep(1000);
-    
+
     WiFi.mode(WIFI_STA);
+    WiFi.hostname(composeClientID().c_str());
     WiFi.begin(wifi_ssid, wifi_pass);
 
     connectToWifi();
@@ -201,28 +235,42 @@ void loop()
     ArduinoOTA.handle();
     if (tcsReader.hasCommand())
     {
+        ledState = !ledState;
+        digitalWrite(LED_BUILTIN, ledState);
         uint32_t cmd = tcsReader.read();
+        // digitalWrite(BUILTIN_LED, !digitalRead(BUILTIN_LED));
 
-        if(partyMode && cmd == CODE_PARTY_MODE)
+        if (cmd == CODE_DOOR_BELL)
+        {
+            publishDoorBell();
+        }
+
+        if (cmd == CODE_FRONT_DOOR_BELL)
+        {
+            publishFrontDoorBell();
+        }
+
+        if (partyMode && cmd == CODE_PARTY_MODE)
         {
             // we have party, let everybody in
             openDoor();
         }
 
-        if(cmd == CODE_PATTERN_DETECT)
+        if (cmd == CODE_PATTERN_DETECT)
         {
-            if(patternRecognition.trigger())
+            if (patternRecognition.trigger())
             {
                 openDoor();
                 sendPatternDetected();
             }
         }
+
         Serial.print("TCS Bus: 0x");
         printHEX(cmd);
         Serial.println();
 
         char byte_cmd[9];
         sprintf(byte_cmd, "%08x", cmd);
-        client.publish(mqtt_topic, byte_cmd);
+        client.publish((mqttRootTopic + "/monitor/state").c_str(), byte_cmd);
     }
 }

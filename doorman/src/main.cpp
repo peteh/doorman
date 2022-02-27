@@ -35,6 +35,15 @@ char mqtt_pass[60] = "";
 char mqtt_topic[60] = "home/flur/klingel/monitor";
 char mqtt_command_topic[60] = "home/flur/klingel/commands";
 
+// apartement door: 
+//   doorman-[name]/apartment/bell/state -> on/off
+//   doorman-[name]/apartment/bell/pattern/state -> on/off
+// entry door: 
+//   doorman-[name]/entry/bell/state -> on/off
+//   doorman-[name]/entry/bell/pattern/state -> on/off
+//   doorman-[name]/entry/door/cmd
+//   doorman-[name]/entry/autoopen/state
+
 
 // commands
 // 0x1100 door opener if the handset is not lifted up
@@ -48,7 +57,7 @@ const uint32_t CODE_DOOR_OPENER = 0x1100;        // use door opener code here (w
 const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // code to detect the pattern on, probably use your main door bell code here
 const uint32_t CODE_PARTY_MODE = 0x0B8F9A80;     // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
 
-const uint32_t CODE_DOOR_BELL = 0x1B8F9A41;       // flat door
+const uint32_t CODE_APT_DOOR_BELL = 0x1B8F9A41;   // apartment door
 const uint32_t CODE_FRONT_DOOR_BELL = 0x0B8F9A80; // front door
 
 bool partyMode = false;
@@ -240,7 +249,7 @@ void loop()
         uint32_t cmd = tcsReader.read();
         // digitalWrite(BUILTIN_LED, !digitalRead(BUILTIN_LED));
 
-        if (cmd == CODE_DOOR_BELL)
+        if (cmd == CODE_APT_DOOR_BELL)
         {
             publishDoorBell();
         }

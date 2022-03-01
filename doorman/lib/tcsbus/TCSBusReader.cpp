@@ -17,14 +17,33 @@ void printHEX(uint32_t data)
 }
 
 TCSBusReader::TCSBusReader(uint8_t readPin)
-    : m_readPin(readPin)
+    : m_readPin(readPin),
+    m_enabled(false)
 {
 }
 
 void TCSBusReader::begin()
 {
     pinMode(m_readPin, INPUT);
-    attachInterrupt(digitalPinToInterrupt(m_readPin), analyzeCMD, CHANGE);
+    enable();
+}
+
+void TCSBusReader::enable()
+{
+    if(!m_enabled)
+    {
+        m_enabled = true;
+        attachInterrupt(digitalPinToInterrupt(m_readPin), analyzeCMD, CHANGE);
+    }
+}
+
+void TCSBusReader::disable()
+{
+    if(m_enabled)
+    {
+        m_enabled = false;
+        detachInterrupt(digitalPinToInterrupt(m_readPin));
+    }
 }
 
 bool TCSBusReader::hasCommand()
@@ -43,13 +62,16 @@ uint32_t TCSBusReader::read()
     return tmp;
 }
 
+void TCSBusReader::inject(uint32_t cmd)
+{
+    s_cmdReady = 1;
+    s_cmd = cmd;
+}
+
 void IRAM_ATTR TCSBusReader::analyzeCMD()
 {
     // this method is magic from https://github.com/atc1441/TCSintercomArduino
-    if (TCSBusWriter::s_writing)
-    {
-        return;
-    }
+    // TODO extract these to members
     static uint32_t curCMD;
     static uint32_t usLast;
     static byte curCRC;
@@ -148,7 +170,7 @@ void IRAM_ATTR TCSBusReader::analyzeCMD()
         if (curCRC == calCRC)
         {
             s_cmdReady = 1;
-            s_cmdLength = curLength;
+            s_cmdLength = curLength; // todo this variable seems to be not used anywhere
             s_cmd = curCMD;
         }
         curCMD = 0;

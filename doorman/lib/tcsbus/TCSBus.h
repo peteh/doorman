@@ -7,12 +7,10 @@
 
 /**
  * @brief Helper function to print human readable hex message of tcs data to serial
- * 
+ *
  * @param data the data to print
  */
 void printHEX(uint32_t data);
-
-
 
 class TCSBusReader
 {
@@ -30,6 +28,18 @@ public:
     void begin();
 
     /**
+     * @brief Enables the reading of the bus via interrupts. 
+     * 
+     */
+    void enable();
+
+    /**
+     * @brief Disables the reading of the bus via interrupts
+     * 
+     */
+    void disable();
+
+    /**
      * @brief Returns true if a new command has been received from the bus.
      *
      * @return true if a new command has been received.
@@ -44,10 +54,18 @@ public:
      */
     uint32_t read();
 
+    /**
+     * @brief Injects a command into the reader that can be read from it directly 
+     * without being read from the bus.
+     *
+     * @param cmd the command to inject
+     */
+    void inject(uint32_t cmd);
+
 private:
     /**
-     * @brief The interrupt method that counts the time for each high 
-     * or low bit and connects it to one big command. 
+     * @brief The interrupt method that counts the time for each high
+     * or low bit and connects it to one big command.
      */
     static void IRAM_ATTR analyzeCMD();
 
@@ -55,13 +73,12 @@ private:
     static volatile uint8_t s_cmdLength;
     static volatile bool s_cmdReady;
     uint8_t m_readPin;
+    bool m_enabled;
 };
 
 class TCSBusWriter
 {
 public:
-    static volatile bool s_writing;
-
     /**
      * @brief Allows to write to the TCS Bus.
      *
@@ -81,7 +98,7 @@ public:
      * @return true if we are writing to the bus
      * @return false if we are not writing to the bus
      */
-    static bool isWriting();
+    bool isWriting();
 
     /**
      * @brief Writes the data to the bus. Can be a short command with 16 bits or a
@@ -96,4 +113,5 @@ public:
 
 private:
     uint8_t m_writePin;
+    bool m_writing;
 };

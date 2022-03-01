@@ -26,24 +26,86 @@ char wifi_ssid[] = "iot";        // your network SSID (name)
 char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use as key for WEP)
 
 // mqtt server
-char mqtt_server[255] = "192.168.42.100";
+char mqtt_server[255] = "192.168.2.50";
 uint16_t mqtt_port = 1883;
 char mqtt_user[60] = "";
 char mqtt_pass[60] = "";
 
-// define your default values here, if there are different values in config.json, they are overwritten.
-char mqtt_topic[60] = "home/flur/klingel/monitor";
-char mqtt_command_topic[60] = "home/flur/klingel/commands";
+enum mqtt_path
+{
+    MQTT_PATH_NONE,
 
-// apartement door: 
+    MQTT_PATH_ENTRY_DOOR_BELL,
+    MQTT_PATH_ENTRY_DOOR_BELL_PATTERN,
+    MQTT_PATH_ENTRY_DOOR_OPENER,
+
+    MQTT_PATH_APARTMENT_DOOR_BELL,
+    MQTT_PATH_APARTMENT_DOOR_BELL_PATTERN,
+
+    MQTT_PATH_BUS,
+};
+
+const String mqtt_path_s[] = {
+    "",
+
+    "entry/bell",
+    "entry/bell/pattern",
+    "entry/door/opener",
+
+    "apartment/bell",
+    "apartment/bell/pattern",
+
+    "bus"};
+
+enum mqtt_action
+{
+    MQTT_ACTION_NONE,
+    MQTT_ACTION_CMD,
+    MQTT_ACTION_STATE
+};
+
+const String mqtt_action_s[] = {
+    "",
+    "cmd",
+    "state"};
+
+enum mqtt_state
+{
+    MQTT_STATE_NONE,
+    MQTT_STATE_ON,
+    MQTT_STATE_OFF
+};
+
+const String mqtt_state_s[] = {
+    "",
+    "on",
+    "off"};
+
+String mqttPath(mqtt_path path, mqtt_action action)
+{
+    String topic = "";
+    topic += composeClientID();
+    if (path != MQTT_PATH_NONE)
+    {
+        topic += "/";
+        topic += mqtt_path_s[path];
+    }
+    if (action != MQTT_ACTION_NONE)
+    {
+        topic += "/";
+        topic += mqtt_action_s[action];
+    }
+    return topic;
+}
+
+// apartement door:
 //   doorman-[name]/apartment/bell/state -> on/off
 //   doorman-[name]/apartment/bell/pattern/state -> on/off
-// entry door: 
+// entry door:
 //   doorman-[name]/entry/bell/state -> on/off
 //   doorman-[name]/entry/bell/pattern/state -> on/off
 //   doorman-[name]/entry/door/cmd
 //   doorman-[name]/entry/autoopen/state
-
 
 // commands
 // 0x1100 door opener if the handset is not lifted up
@@ -58,7 +120,7 @@ const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // code to detect the pattern o
 const uint32_t CODE_PARTY_MODE = 0x0B8F9A80;     // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
 
 const uint32_t CODE_APT_DOOR_BELL = 0x1B8F9A41;   // apartment door
-const uint32_t CODE_FRONT_DOOR_BELL = 0x0B8F9A80; // front door
+const uint32_t CODE_ENTRY_DOOR_BELL = 0x0B8F9A80; // front door
 
 bool partyMode = false;
 
@@ -68,7 +130,9 @@ bool partyMode = false;
 TriggerPatternRecognition patternRecognition;
 TCSBusWriter tcsWriter(PIN_BUS_WRITE);
 TCSBusReader tcsReader(PIN_BUS_READ);
-String mqttRootTopic = "";
+
+uint32_t commandToSend = 0;
+bool shouldSend = false;
 
 bool ledState = false;
 
@@ -87,10 +151,11 @@ void connectToMqtt()
         Serial.print(".");
         delay(4000);
     }
-    client.subscribe(mqtt_command_topic, 0);
+    client.subscribe(mqttPath(MQTT_PATH_BUS, MQTT_ACTION_CMD).c_str(), 1);
+    client.subscribe(mqttPath(MQTT_PATH_ENTRY_DOOR_BELL, MQTT_ACTION_CMD).c_str(), 1);
+    client.subscribe(mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL, MQTT_ACTION_CMD).c_str(), 1);
 
-    // TODO: how to handle going online? 
-    client.publish((mqttRootTopic).c_str(), "online");
+    client.publish(mqttPath(MQTT_PATH_NONE, MQTT_ACTION_NONE).c_str(), "online");
 }
 
 void connectToWifi()
@@ -105,24 +170,32 @@ void connectToWifi()
     Serial.println("\n Wifi connected!");
 }
 
-void sendPatternDetected()
+void publishApartmentDoorBellPatternDetected()
 {
-    client.publish((mqttRootTopic + "/pattern/state").c_str(), "on");
-    client.publish((mqttRootTopic + "/pattern/state").c_str(), "off");
+    String topic = mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL_PATTERN, MQTT_ACTION_STATE);
+    client.publish(topic.c_str(), "on");
+    client.publish(topic.c_str(), "off");
 }
 
-void publishDoorBell()
+void publishApartmentDoorBell()
 {
-    // TODO: topic
-    client.publish((mqttRootTopic + "/doorbell/state").c_str(), "on");
-    client.publish((mqttRootTopic + "/doorbell/state").c_str(), "off");
+    String topic = mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL, MQTT_ACTION_STATE);
+    client.publish(topic.c_str(), "on");
+    client.publish(topic.c_str(), "off");
 }
 
-void publishFrontDoorBell()
+void publishEntryDoorBellPatternDetected()
 {
-    // TODO: topic
-    client.publish((mqttRootTopic + "/frontdoorbell/state").c_str(), "on");
-    client.publish((mqttRootTopic + "/frontdoorbell/state").c_str(), "off");
+    String topic = mqttPath(MQTT_PATH_ENTRY_DOOR_BELL_PATTERN, MQTT_ACTION_STATE);
+    client.publish(topic.c_str(), "on");
+    client.publish(topic.c_str(), "off");
+}
+
+void publishEntryDoorBell()
+{
+    String topic = mqttPath(MQTT_PATH_ENTRY_DOOR_BELL, MQTT_ACTION_STATE);
+    client.publish(topic.c_str(), "on");
+    client.publish(topic.c_str(), "off");
 }
 
 void openDoor()
@@ -142,27 +215,35 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
     Serial.println();
     // TODO length check
-    char temp[32];
-    strncpy(temp, (char *)payload, length);
-    uint32_t data = (uint32_t)strtoul(temp, NULL, 16);
 
-    tcsWriter.write(data);
-    Serial.println(data);
+    if (strcmp(topic, mqttPath(MQTT_PATH_BUS, MQTT_ACTION_CMD).c_str()) == 0)
+    {
+        char temp[32];
+        strncpy(temp, (char *)payload, length);
+        uint32_t data = (uint32_t)strtoul(temp, NULL, 16);
+        commandToSend = data;
+        shouldSend = true;
+    }
+    else if (strcmp(topic, mqttPath(MQTT_PATH_ENTRY_DOOR_BELL, MQTT_ACTION_CMD).c_str()) == 0)
+    {
+        commandToSend = CODE_ENTRY_DOOR_BELL;
+        shouldSend = true;
+    }
+    else if (strcmp(topic, mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL, MQTT_ACTION_CMD).c_str()) == 0)
+    {
+        commandToSend = CODE_APT_DOOR_BELL;
+        shouldSend = true;
+    }
 }
 
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, ledState);
-    
-    // mqtt root topic
-    mqttRootTopic = "home/" + composeClientID();
 
     Serial.begin(115200);
     tcsWriter.begin();
     tcsReader.begin();
-
-    
 
     // configure pattern detection
     patternRecognition.addStep(1000);
@@ -242,21 +323,32 @@ void loop()
     }
     client.loop();
     ArduinoOTA.handle();
+    if (shouldSend)
+    {
+        uint32_t cmd = commandToSend;
+        shouldSend = false;
+        Serial.printf("Sending: %08x", cmd);
+        Serial.println();
+        tcsReader.disable();
+        tcsWriter.write(cmd);
+        tcsReader.enable();
+        // dirty hack to also publish commands we have written
+        tcsReader.inject(cmd);
+    }
     if (tcsReader.hasCommand())
     {
         ledState = !ledState;
         digitalWrite(LED_BUILTIN, ledState);
         uint32_t cmd = tcsReader.read();
-        // digitalWrite(BUILTIN_LED, !digitalRead(BUILTIN_LED));
 
         if (cmd == CODE_APT_DOOR_BELL)
         {
-            publishDoorBell();
+            publishApartmentDoorBell();
         }
 
-        if (cmd == CODE_FRONT_DOOR_BELL)
+        if (cmd == CODE_ENTRY_DOOR_BELL)
         {
-            publishFrontDoorBell();
+            publishEntryDoorBell();
         }
 
         if (partyMode && cmd == CODE_PARTY_MODE)
@@ -270,7 +362,7 @@ void loop()
             if (patternRecognition.trigger())
             {
                 openDoor();
-                sendPatternDetected();
+                publishApartmentDoorBellPatternDetected();
             }
         }
 
@@ -280,6 +372,6 @@ void loop()
 
         char byte_cmd[9];
         sprintf(byte_cmd, "%08x", cmd);
-        client.publish((mqttRootTopic + "/monitor/state").c_str(), byte_cmd);
+        client.publish(mqttPath(MQTT_PATH_BUS, MQTT_ACTION_STATE).c_str(), byte_cmd);
     }
 }

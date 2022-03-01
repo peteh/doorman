@@ -1,9 +1,8 @@
 #include "TCSBus.h"
 
-volatile bool TCSBusWriter::s_writing = false;
-
 TCSBusWriter::TCSBusWriter(uint8_t writePin)
-:m_writePin(writePin)
+    : m_writePin(writePin),
+      m_writing(false)
 {
 }
 
@@ -14,13 +13,13 @@ void TCSBusWriter::begin()
 
 bool TCSBusWriter::isWriting()
 {
-    return s_writing;
+    return m_writing;
 }
 
 void TCSBusWriter::write(uint32_t data)
 {
     // this is magic from https://github.com/atc1441/TCSintercomArduino
-    TCSBusWriter::s_writing = true;
+    m_writing = true;
     int length = 16;
     byte checksm = 1;
     bool isLongMessage = false;
@@ -44,5 +43,5 @@ void TCSBusWriter::write(uint32_t data)
     digitalWrite(m_writePin, !digitalRead(m_writePin));
     delay(checksm ? TCS_ONE_BIT_MS : TCS_ZERO_BIT_MS);
     digitalWrite(m_writePin, LOW);
-    TCSBusWriter::s_writing = false;
+    m_writing = false;
 }

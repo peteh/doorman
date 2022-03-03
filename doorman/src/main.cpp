@@ -42,6 +42,8 @@ enum mqtt_path
     MQTT_PATH_APARTMENT_DOOR_BELL,
     MQTT_PATH_APARTMENT_DOOR_BELL_PATTERN,
 
+    MQTT_PATH_PARTY_MODE, 
+
     MQTT_PATH_BUS,
 };
 
@@ -54,6 +56,8 @@ const String mqtt_path_s[] = {
 
     "apartment/bell",
     "apartment/bell/pattern",
+
+    "partymode", 
 
     "bus"};
 
@@ -141,6 +145,9 @@ unsigned long tsLastLedStateOn = 0;
 
 // TODO: factor out auto configuration into lib
 // TODO: cleanup code
+// TODO: initially send switch and sensor states after going online
+// TOOD: handle home assistant going offline and online
+// TODO: add party mode switch
 // TODO: wifi auto config
 
 void blinkLedAsync()

@@ -50,7 +50,7 @@ const String mqtt_path_s[] = {
 
     "entry/bell",
     "entry/bell/pattern",
-    "entry/door/opener",
+    "entry/opener",
 
     "apartment/bell",
     "apartment/bell/pattern",
@@ -104,7 +104,7 @@ String mqttPath(mqtt_path path, mqtt_action action)
 // entry door:
 //   doorman-[name]/entry/bell/state -> on/off
 //   doorman-[name]/entry/bell/pattern/state -> on/off
-//   doorman-[name]/entry/door/cmd
+//   doorman-[name]/entry/opener/cmd
 //   doorman-[name]/entry/autoopen/state
 
 // commands
@@ -116,7 +116,8 @@ String mqttPath(mqtt_path path, mqtt_action action)
 
 // const uint32_t CODE_DOOR_OPENER = 0x1100; // use door opener code here
 const uint32_t CODE_DOOR_OPENER = 0x1100;        // use door opener code here (was 0x1100 for mine)
-const uint32_t CODE_PATTERN_DETECT = 0x0B8F9A80; // code to detect the pattern on, probably use your main door bell code here
+const uint32_t CODE_ENTRY_PATTERN_DETECT = 0x0B8F9A80; // code to detect the pattern on, probably use your main door bell code here
+const uint32_t CODE_APARTMENT_PATTERN_DETECT = 0x1B8F9A41; // code to detect the pattern on, probably use your main door bell code here
 const uint32_t CODE_PARTY_MODE = 0x0B8F9A80;     // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
 
 const uint32_t CODE_APT_DOOR_BELL = 0x1B8F9A41;   // apartment door
@@ -127,7 +128,8 @@ bool partyMode = false;
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D6
 
-TriggerPatternRecognition patternRecognition;
+TriggerPatternRecognition patternRecognitionEntry;
+TriggerPatternRecognition patternRecognitionApartment;
 TCSBusWriter tcsWriter(PIN_BUS_WRITE);
 TCSBusReader tcsReader(PIN_BUS_READ);
 
@@ -135,11 +137,57 @@ uint32_t commandToSend = 0;
 bool shouldSend = false;
 
 bool ledState = false;
+unsigned long tsLastLedStateOn = 0;
 
-// TODO: figure out mqtt topics
-//  switches: front door, flat door, door opener
-//  bus: state, cmd
-// TODO: home assistant auto config
+// TODO: factor out auto configuration into lib
+// TODO: cleanup code
+// TODO: wifi auto config
+
+void blinkLedAsync()
+{
+    digitalWrite(LED_BUILTIN, LOW);
+    tsLastLedStateOn = millis();
+    ledState = true;
+}
+
+void publishSwitchConfig(String device, String identifier, String name, String mainTopic)
+{
+    DynamicJsonDocument doc(2048);
+    doc["name"] = name;
+    doc["~"] = mainTopic;
+    doc["command_topic"] = "~/cmd";
+    doc["state_topic"] = "~/state";
+    doc["payload_on"] = "on";
+    doc["payload_off"] = "off";
+    String configData;
+    serializeJson(doc, configData);
+    String configTopic = "homeassistant/switch/" + composeClientID() + "/" + identifier + "/config";
+    client.publish(configTopic.c_str(), configData.c_str());
+}
+
+void publishBinarySensorConfig(String device, String identifier, String name, String mainTopic)
+{
+    DynamicJsonDocument doc(2048);
+    doc["name"] = name;
+    doc["~"] = mainTopic;
+    doc["state_topic"] = "~/state";
+    doc["payload_on"] = "on";
+    doc["payload_off"] = "off";
+    String configData;
+    serializeJson(doc, configData);
+    String configTopic = "homeassistant/binary_sensor/" + composeClientID() + "/" + identifier + "/config";
+    client.publish(configTopic.c_str(), configData.c_str());
+}
+
+void publishConfig()
+{
+    publishSwitchConfig(composeClientID(), "entrybell", "Entry Bell",  mqttPath(MQTT_PATH_ENTRY_DOOR_BELL, MQTT_ACTION_NONE));
+    publishSwitchConfig(composeClientID(), "apartmentbell", "Apartment Bell",  mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL, MQTT_ACTION_NONE));
+    publishSwitchConfig(composeClientID(), "dooropener", "Door Opener",  mqttPath(MQTT_PATH_ENTRY_DOOR_OPENER, MQTT_ACTION_NONE));
+
+    publishBinarySensorConfig(composeClientID(), "entrybellpattern", "Entry Bell Pattern",  mqttPath(MQTT_PATH_ENTRY_DOOR_BELL_PATTERN, MQTT_ACTION_NONE));
+    publishBinarySensorConfig(composeClientID(), "apartmentbellpattern", "Apartment Bell Pattern",  mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL_PATTERN, MQTT_ACTION_NONE));
+}
 
 void connectToMqtt()
 {
@@ -154,8 +202,10 @@ void connectToMqtt()
     client.subscribe(mqttPath(MQTT_PATH_BUS, MQTT_ACTION_CMD).c_str(), 1);
     client.subscribe(mqttPath(MQTT_PATH_ENTRY_DOOR_BELL, MQTT_ACTION_CMD).c_str(), 1);
     client.subscribe(mqttPath(MQTT_PATH_APARTMENT_DOOR_BELL, MQTT_ACTION_CMD).c_str(), 1);
+    client.subscribe(mqttPath(MQTT_PATH_ENTRY_DOOR_OPENER, MQTT_ACTION_CMD).c_str(), 1);
 
     client.publish(mqttPath(MQTT_PATH_NONE, MQTT_ACTION_NONE).c_str(), "online");
+    publishConfig();
 }
 
 void connectToWifi()
@@ -234,20 +284,30 @@ void callback(char *topic, byte *payload, unsigned int length)
         commandToSend = CODE_APT_DOOR_BELL;
         shouldSend = true;
     }
+    else if (strcmp(topic, mqttPath(MQTT_PATH_ENTRY_DOOR_OPENER, MQTT_ACTION_CMD).c_str()) == 0)
+    {
+        commandToSend = CODE_DOOR_OPENER;
+        shouldSend = true;
+    }
 }
 
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, ledState);
+    // turn on led until boot sequence finished
+    blinkLedAsync();
 
     Serial.begin(115200);
     tcsWriter.begin();
     tcsReader.begin();
 
     // configure pattern detection
-    patternRecognition.addStep(1000);
-    patternRecognition.addStep(1000);
+    patternRecognitionEntry.addStep(1000);
+    patternRecognitionEntry.addStep(1000);
+    
+    // configure pattern detection
+    patternRecognitionApartment.addStep(1000);
+    patternRecognitionApartment.addStep(1000);
 
     WiFi.mode(WIFI_STA);
     WiFi.hostname(composeClientID().c_str());
@@ -313,6 +373,14 @@ void setup()
 
 void loop()
 {
+    if(ledState)
+    {
+        if(millis() - tsLastLedStateOn > 50)
+        {
+            ledState = false;
+            digitalWrite(LED_BUILTIN, HIGH);
+        }
+    }
     if (WiFi.status() != WL_CONNECTED)
     {
         connectToWifi();
@@ -334,11 +402,11 @@ void loop()
         tcsReader.enable();
         // dirty hack to also publish commands we have written
         tcsReader.inject(cmd);
+        blinkLedAsync();
     }
     if (tcsReader.hasCommand())
     {
-        ledState = !ledState;
-        digitalWrite(LED_BUILTIN, ledState);
+        blinkLedAsync();
         uint32_t cmd = tcsReader.read();
 
         if (cmd == CODE_APT_DOOR_BELL)
@@ -353,15 +421,23 @@ void loop()
 
         if (partyMode && cmd == CODE_PARTY_MODE)
         {
-            // we have party, let everybody in
+            // we have a party, let everybody in
             openDoor();
         }
 
-        if (cmd == CODE_PATTERN_DETECT)
+        if (cmd == CODE_ENTRY_PATTERN_DETECT)
         {
-            if (patternRecognition.trigger())
+            if (patternRecognitionEntry.trigger())
             {
                 openDoor();
+                publishEntryDoorBellPatternDetected();
+            }
+        }
+
+        if (cmd == CODE_APARTMENT_PATTERN_DETECT)
+        {
+            if (patternRecognitionApartment.trigger())
+            {
                 publishApartmentDoorBellPatternDetected();
             }
         }

@@ -144,6 +144,8 @@ void connectToMqtt()
     client.subscribe(mqttTopic(MQTT_TOPIC_APARTMENT_DOOR_BELL, MQTT_ACTION_CMD).c_str(), 1);
     client.subscribe(mqttTopic(MQTT_TOPIC_ENTRY_DOOR_OPENER, MQTT_ACTION_CMD).c_str(), 1);
     client.subscribe(mqttTopic(MQTT_TOPIC_PARTY_MODE, MQTT_ACTION_CMD).c_str(), 1);
+    client.subscribe(HOMEASSISTANT_STATUS_TOPIC);
+    client.subscribe(HOMEASSISTANT_STATUS_TOPIC_ALT);
 
     client.publish(mqttTopic(MQTT_TOPIC_NONE, MQTT_ACTION_NONE).c_str(), "online");
     publishConfig();
@@ -250,7 +252,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         publishPartyMode();
     }
 
-    // register when homeassistant goes offline and needs the configuration again
+    // publish config when homeassistant comes online and needs the configuration again
     else if (strcmp(topic, HOMEASSISTANT_STATUS_TOPIC) == 0 ||
              strcmp(topic, HOMEASSISTANT_STATUS_TOPIC_ALT) == 0)
     {

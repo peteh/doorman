@@ -20,18 +20,10 @@
 #include <MqttDevice.h>
 
 #include "utils.h"
+#include "config.h"
 
 WiFiClient net;
 PubSubClient client(net);
-
-char wifi_ssid[] = "iot";        // your network SSID (name)
-char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use as key for WEP)
-
-// mqtt server
-char mqtt_server[255] = "192.168.2.50";
-uint16_t mqtt_port = 1883;
-char mqtt_user[60] = "";
-char mqtt_pass[60] = "";
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";

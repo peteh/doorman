@@ -1,7 +1,7 @@
 #include "MqttDevice.h"
 
 
-String MqttDevice::getHomeAssistantConfigPayload()
+String MqttEntity::getHomeAssistantConfigPayload()
 {
     DynamicJsonDocument doc(2048);
 
@@ -21,6 +21,13 @@ String MqttDevice::getHomeAssistantConfigPayload()
 
     // add the other configurations
     addConfig(doc);
+
+    // add device config
+    JsonObject device = doc.createNestedObject("device");
+    device["identifiers"] = m_device->getIdentifier();
+    device["name"] = m_device->getName();
+    device["model"] = m_device->getModel();
+    //device["manufacturer"] = "Digoo";
 
     String configData;
     serializeJson(doc, configData);

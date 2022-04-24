@@ -43,17 +43,17 @@ const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
 // 0x1B8F9A41 own door bell at the flat door
 // 0x0B8F9A80 own door bell at the main door
-MqttDevice mqttDevice(composeClientID().c_str(), "Doorman", "ESP8622 Doorman");
-MqttSwitch mqttApartmentBell(&mqttDevice, composeClientID().c_str(), "apartmentbell", "Apartment Bell", "apartment/bell");
-MqttBinarySensor mqttApartmentBellPattern(&mqttDevice, composeClientID().c_str(), "apartmentbellpattern", "Apartment Bell Pattern", "apartment/bell/pattern");
+MqttDevice mqttDevice(composeClientID().c_str(), "Doorman", "ESP8622 Doorman", "maker_pt");
+MqttSwitch mqttApartmentBell(&mqttDevice, "apartmentbell", "Apartment Bell", "apartment/bell");
+MqttBinarySensor mqttApartmentBellPattern(&mqttDevice, "apartmentbellpattern", "Apartment Bell Pattern", "apartment/bell/pattern");
 
-MqttSwitch mqttEntryBell(&mqttDevice, composeClientID().c_str(), "entrybell", "Entry Bell", "entry/bell");
-MqttBinarySensor mqttEntryBellPattern(&mqttDevice, composeClientID().c_str(), "entrybellpattern", "Entry Bell Pattern", "entry/bell/pattern");
-MqttSwitch mqttEntryOpener(&mqttDevice, composeClientID().c_str(), "entryopener", "Door Opener", "entry/opener");
+MqttSwitch mqttEntryBell(&mqttDevice, "entrybell", "Entry Bell", "entry/bell");
+MqttBinarySensor mqttEntryBellPattern(&mqttDevice, "entrybellpattern", "Entry Bell Pattern", "entry/bell/pattern");
+MqttSwitch mqttEntryOpener(&mqttDevice, "entryopener", "Door Opener", "entry/opener");
 
-MqttSwitch mqttPartyMode(&mqttDevice, composeClientID().c_str(), "partymode", "Door Opener Party Mode", "partymode");
+MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode", "partymode");
 
-MqttSwitch mqttBus(&mqttDevice, composeClientID().c_str(), "bus", "TCS Bus", "bus");
+MqttSwitch mqttBus(&mqttDevice, "bus", "TCS Bus", "bus");
 
 const uint32_t CODE_DOOR_OPENER = 0x1100;                  // use door opener code here (was 0x1100 for mine)
 const uint32_t CODE_DOOR_OPENER_HANDSET_LIFTUP = 0x1180;   // use door opener code here (was 0x1100 for mine)

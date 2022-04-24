@@ -24,10 +24,10 @@ String MqttEntity::getHomeAssistantConfigPayload()
 
     // add device config
     JsonObject device = doc.createNestedObject("device");
-    device["identifiers"] = m_device->getIdentifier();
+    device["identifiers"][0] = m_device->getIdentifier();
     device["name"] = m_device->getName();
     device["model"] = m_device->getModel();
-    //device["manufacturer"] = "Digoo";
+    device["manufacturer"] = m_device->getManufacturer();
 
     String configData;
     serializeJson(doc, configData);

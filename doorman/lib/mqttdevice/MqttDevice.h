@@ -4,11 +4,12 @@
 class MqttDevice
 {
 public:
-    MqttDevice(const char *identifier, const char *name, const char *model)
+    MqttDevice(const char *identifier, const char *name, const char *model, const char *manufacturer)
     {
         strncpy(m_identifier, identifier, sizeof(m_identifier));
         strncpy(m_name, name, sizeof(m_name));
         strncpy(m_model, model, sizeof(m_model));
+        strncpy(m_manufacturer, manufacturer, sizeof(m_manufacturer));
     }
 
 public:
@@ -27,27 +28,31 @@ public:
         return m_model;
     }
 
+    const char *getManufacturer() const
+    {
+        return m_manufacturer;
+    }
+
 private:
     char m_identifier[64];
     char m_name[64];
     char m_model[64];
+    char m_manufacturer[64];
 };
 
 class MqttEntity
 {
 public:
-    MqttEntity(const MqttDevice *mqttDevice, const char *nodeId, const char *objectId, const char *type, const char *humanName, const char *subTopic)
+    MqttEntity(const MqttDevice *mqttDevice, const char *objectId, const char *type, const char *humanName, const char *subTopic)
     {
         m_device = mqttDevice;
-        strncpy(m_nodeId, nodeId, sizeof(m_nodeId));
         strncpy(m_objectId, objectId, sizeof(m_objectId));
         strncpy(m_type, type, sizeof(m_type));
         strncpy(m_humanName, humanName, sizeof(m_humanName));
-        strncpy(m_subTopic, subTopic, sizeof(m_subTopic));
 
-        snprintf(m_cmdTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_nodeId, m_subTopic, m_cmdSubTopic);
-        snprintf(m_stateTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_nodeId, m_subTopic, m_stateSubTopic);
-        snprintf(m_uniqueId, sizeof(m_uniqueId), "%s-%s", m_nodeId, m_objectId);
+        snprintf(m_cmdTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_cmdSubTopic);
+        snprintf(m_stateTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_stateSubTopic);
+        snprintf(m_uniqueId, sizeof(m_uniqueId), "%s-%s", m_device->getIdentifier(), m_objectId);
     }
 
     void setHasCommandTopic(bool hasCommand)
@@ -57,7 +62,7 @@ public:
 
     void getBaseTopic(char *baseTopic_, size_t bufferSize)
     {
-        snprintf(baseTopic_, bufferSize, "%s/%s", m_nodeId, m_subTopic);
+        snprintf(baseTopic_, bufferSize, "%s/%s", m_device->getIdentifier(), m_objectId);
     }
 
     const char *getCommandTopic()
@@ -67,7 +72,7 @@ public:
 
     void getCommandTopic(char *commandTopic_, size_t bufferSize)
     {
-        snprintf(commandTopic_, bufferSize, "%s/%s/%s", m_nodeId, m_subTopic, m_cmdSubTopic);
+        snprintf(commandTopic_, bufferSize, "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_cmdSubTopic);
     }
 
     const char *getStateTopic()
@@ -77,7 +82,7 @@ public:
 
     void getStateTopic(char *stateTopic_, size_t bufferSize)
     {
-        snprintf(stateTopic_, bufferSize, "%s/%s/%s", m_nodeId, m_subTopic, m_stateSubTopic);
+        snprintf(stateTopic_, bufferSize, "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_stateSubTopic);
     }
 
     const char *getHumanName()
@@ -88,16 +93,18 @@ public:
     void getHomeAssistantConfigTopic(char *configTopic_, size_t bufferSize)
     {
         // TODO:  homeassistant/[type]/[device identifier]/[object id]/config
-        snprintf(configTopic_, bufferSize, "homeassistant/%s/%s/config",
+        snprintf(configTopic_, bufferSize, "homeassistant/%s/%s/%s/config",
                  m_type,
-                 m_uniqueId);
+                 m_device->getIdentifier(),
+                 m_objectId);
     }
 
     void getHomeAssistantConfigTopicAlt(char *configTopic_, size_t bufferSize)
     {
-        snprintf(configTopic_, bufferSize, "ha/%s/%s/config",
+        snprintf(configTopic_, bufferSize, "ha/%s/%s/%s/config",
                  m_type,
-                 m_uniqueId);
+                 m_device->getIdentifier(),
+                 m_objectId);
     }
 
     String getHomeAssistantConfigPayload();
@@ -109,13 +116,10 @@ protected:
 
 private:
     const MqttDevice *m_device; // the device this entity belongs to
-    char m_nodeId[32];    // our node that publishes the different devices, e.g. doorman-3434
-    char m_objectId[32];  // our actual device identifier, e.g. doorbell, must be unique within the nodeid
-    char m_type[16];      // mqtt device type, e.g. switch
-    char m_uniqueId[64];  // the unique identifier, e.g. doorman2323-doorbell
-    char m_humanName[64]; // human readbable name, e.g. Door Bell
-
-    char m_subTopic[128]; // topic under nodeid/x/y, e.g. door/bell
+    char m_objectId[32];        // our actual device identifier, e.g. doorbell, must be unique within the nodeid
+    char m_type[16];            // mqtt device type, e.g. switch
+    char m_uniqueId[96];        // the unique identifier, e.g. doorman2323-doorbell
+    char m_humanName[64];       // human readbable name, e.g. Door Bell
 
     bool m_hasCommandTopic = false;
     char m_cmdTopic[255];
@@ -130,8 +134,8 @@ private:
 class MqttBinarySensor : public MqttEntity
 {
 public:
-    MqttBinarySensor(MqttDevice *device, const char *nodeId, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, nodeId, objectId, "binary_sensor", humanName, subTopic)
+    MqttBinarySensor(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
+        : MqttEntity(device, objectId, "binary_sensor", humanName, subTopic)
     {
     }
 
@@ -157,11 +161,27 @@ private:
     const char *m_stateOff = "off";
 };
 
+class MqttSensor : public MqttEntity
+{
+public:
+    MqttSensor(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
+        : MqttEntity(device, objectId, "sensor", humanName, subTopic)
+    {
+    }
+
+protected:
+    virtual void addConfig(DynamicJsonDocument &doc)
+    {
+        // doc["payload_on"] = m_stateOn;
+        // doc["payload_off"] = m_stateOff;
+    }
+};
+
 class MqttSwitch : public MqttEntity
 {
 public:
-    MqttSwitch(MqttDevice *device, const char *nodeId, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, nodeId, objectId, "switch", humanName, subTopic)
+    MqttSwitch(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
+        : MqttEntity(device, objectId, "switch", humanName, subTopic)
     {
         setHasCommandTopic(true);
     }
@@ -194,8 +214,8 @@ private:
 class MqttLock : public MqttEntity
 {
 public:
-    MqttLock(MqttDevice *device, const char *nodeId, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, nodeId, objectId, "lock", humanName, subTopic)
+    MqttLock(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
+        : MqttEntity(device, objectId, "lock", humanName, subTopic)
     {
         setHasCommandTopic(true);
     }

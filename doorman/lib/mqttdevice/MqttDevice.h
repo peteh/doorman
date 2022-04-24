@@ -43,7 +43,7 @@ private:
 class MqttEntity
 {
 public:
-    MqttEntity(const MqttDevice *mqttDevice, const char *objectId, const char *type, const char *humanName, const char *subTopic)
+    MqttEntity(const MqttDevice *mqttDevice, const char *objectId, const char *type, const char *humanName)
     {
         m_device = mqttDevice;
         strncpy(m_objectId, objectId, sizeof(m_objectId));
@@ -134,8 +134,8 @@ private:
 class MqttBinarySensor : public MqttEntity
 {
 public:
-    MqttBinarySensor(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, objectId, "binary_sensor", humanName, subTopic)
+    MqttBinarySensor(MqttDevice *device, const char *objectId, const char *humanName)
+        : MqttEntity(device, objectId, "binary_sensor", humanName)
     {
     }
 
@@ -164,8 +164,8 @@ private:
 class MqttSensor : public MqttEntity
 {
 public:
-    MqttSensor(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, objectId, "sensor", humanName, subTopic)
+    MqttSensor(MqttDevice *device, const char *objectId, const char *humanName)
+        : MqttEntity(device, objectId, "sensor", humanName)
     {
     }
 
@@ -180,8 +180,8 @@ protected:
 class MqttSwitch : public MqttEntity
 {
 public:
-    MqttSwitch(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, objectId, "switch", humanName, subTopic)
+    MqttSwitch(MqttDevice *device, const char *objectId, const char *humanName)
+        : MqttEntity(device, objectId, "switch", humanName)
     {
         setHasCommandTopic(true);
     }
@@ -214,8 +214,8 @@ private:
 class MqttLock : public MqttEntity
 {
 public:
-    MqttLock(MqttDevice *device, const char *objectId, const char *humanName, const char *subTopic)
-        : MqttEntity(device, objectId, "lock", humanName, subTopic)
+    MqttLock(MqttDevice *device, const char *objectId, const char *humanName)
+        : MqttEntity(device, objectId, "lock", humanName)
     {
         setHasCommandTopic(true);
     }

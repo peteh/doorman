@@ -12,17 +12,17 @@ public:
     }
 
 public:
-    const char *getIdentifier()
+    const char *getIdentifier() const
     {
         return m_identifier;
     }
 
-    const char *getName()
+    const char *getName() const
     {
         return m_name;
     }
 
-    const char *getModel()
+    const char *getModel() const
     {
         return m_model;
     }
@@ -38,6 +38,7 @@ class MqttEntity
 public:
     MqttEntity(const MqttDevice *mqttDevice, const char *nodeId, const char *objectId, const char *type, const char *humanName, const char *subTopic)
     {
+        m_device = mqttDevice;
         strncpy(m_nodeId, nodeId, sizeof(m_nodeId));
         strncpy(m_objectId, objectId, sizeof(m_objectId));
         strncpy(m_type, type, sizeof(m_type));
@@ -107,7 +108,7 @@ protected:
     virtual void addConfig(DynamicJsonDocument &doc) = 0;
 
 private:
-    MqttDevice *m_device; // the device this entity belongs to
+    const MqttDevice *m_device; // the device this entity belongs to
     char m_nodeId[32];    // our node that publishes the different devices, e.g. doorman-3434
     char m_objectId[32];  // our actual device identifier, e.g. doorbell, must be unique within the nodeid
     char m_type[16];      // mqtt device type, e.g. switch

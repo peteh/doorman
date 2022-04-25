@@ -17,10 +17,26 @@ String MqttEntity::getHomeAssistantConfigPayload()
     {
         doc["command_topic"] = "~/cmd";
     }
-    doc["state_topic"] = "~/state";
+    //doc["state_topic"] = "~/state";
+    doc["state_topic"] = m_stateTopic;
 
     // add the other configurations
     addConfig(doc);
+
+    if(m_valueTemplate[0] != 0)
+    {
+        doc["value_template"] = m_valueTemplate;
+    }
+
+    if(m_unit[0] != 0)
+    {
+        doc["unit_of_measurement"] = m_unit;
+    }
+
+    if(m_deviceClass[0] != 0)
+    {
+        doc["device_class"] = m_deviceClass;
+    }
 
     // add device config
     JsonObject device = doc.createNestedObject("device");

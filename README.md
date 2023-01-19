@@ -16,6 +16,8 @@ When Party mode is enabled, a code (default: entry door buzzer code) is automati
 
 This allows you to enable party mode during a party and your guests can just enter by pressing your door bell when they arrive or go for a smoke.
 
+Party mode can be turned on or off by using the switch on in Homeassistant, or by quickly lifting up you handset 3x (if your handset code has been configured correctly).
+
 ## How to get Codes
 
 Connect doorman to an mqtt broker by setting up WiFi credentials and mqtt broker.

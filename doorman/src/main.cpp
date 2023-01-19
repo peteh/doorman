@@ -196,7 +196,7 @@ void connectToWifi()
 
 void openDoor()
 {
-    delay(1000);
+    delay(50);
     tcsWriter.write(CODE_DOOR_OPENER);
 }
 

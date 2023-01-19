@@ -53,6 +53,10 @@ public:
         snprintf(m_cmdTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_cmdSubTopic);
         snprintf(m_stateTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_stateSubTopic);
         snprintf(m_uniqueId, sizeof(m_uniqueId), "%s-%s", m_device->getIdentifier(), m_objectId);
+
+        m_valueTemplate[0] = 0;
+        m_unit[0] = 0;
+        m_deviceClass[0] = 0;
     }
 
     void setHasCommandTopic(bool hasCommand)
@@ -80,9 +84,24 @@ public:
         return m_stateTopic;
     }
 
-    void getStateTopic(char *stateTopic_, size_t bufferSize)
+    void setCustomStateTopic(const char* customStateTopic)
     {
-        snprintf(stateTopic_, bufferSize, "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_stateSubTopic);
+        strncpy(m_stateTopic, customStateTopic, sizeof(m_stateTopic));
+    }
+
+    void setValueTemplate(const char * valueTemplate)
+    {
+        strncpy(m_valueTemplate, valueTemplate, sizeof(m_valueTemplate));
+    }
+
+    void setUnit(const char* unit)
+    {
+        strncpy(m_unit, unit, sizeof(m_unit));
+    }
+
+    void setDeviceClass(const char* deviceClass)
+    {
+        strncpy(m_deviceClass, deviceClass, sizeof(m_deviceClass));
     }
 
     const char *getHumanName()
@@ -124,6 +143,9 @@ private:
     bool m_hasCommandTopic = false;
     char m_cmdTopic[255];
     char m_stateTopic[255];
+    char m_valueTemplate[255];
+    char m_unit[10];
+    char m_deviceClass[32];
 
     const char *m_cmdSubTopic = "cmd";
     const char *m_stateSubTopic = "state";

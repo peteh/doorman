@@ -53,10 +53,6 @@ public:
         snprintf(m_cmdTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_cmdSubTopic);
         snprintf(m_stateTopic, sizeof(m_cmdTopic), "%s/%s/%s", m_device->getIdentifier(), m_objectId, m_stateSubTopic);
         snprintf(m_uniqueId, sizeof(m_uniqueId), "%s-%s", m_device->getIdentifier(), m_objectId);
-
-        m_valueTemplate[0] = 0;
-        m_unit[0] = 0;
-        m_deviceClass[0] = 0;
     }
 
     void setHasCommandTopic(bool hasCommand)
@@ -104,6 +100,11 @@ public:
         strncpy(m_deviceClass, deviceClass, sizeof(m_deviceClass));
     }
 
+    void setIcon(const char* icon)
+    {
+        strncpy(m_icon, icon, sizeof(m_icon));
+    }
+
     const char *getHumanName()
     {
         return m_humanName;
@@ -141,11 +142,12 @@ private:
     char m_humanName[64];       // human readbable name, e.g. Door Bell
 
     bool m_hasCommandTopic = false;
-    char m_cmdTopic[255];
-    char m_stateTopic[255];
-    char m_valueTemplate[255];
-    char m_unit[10];
-    char m_deviceClass[32];
+    char m_cmdTopic[255] = "";
+    char m_stateTopic[255] = "";
+    char m_valueTemplate[255] = "";
+    char m_unit[10] = "";
+    char m_deviceClass[32] = "";
+    char m_icon[128] = "";
 
     const char *m_cmdSubTopic = "cmd";
     const char *m_stateSubTopic = "state";
@@ -242,14 +244,44 @@ public:
         setHasCommandTopic(true);
     }
 
+    void setPattern(const char *pattern)
+    {
+        strncpy(m_pattern, pattern, sizeof(m_pattern));
+    }
+
+    void setMinLetters(int16_t minLetters)
+    {
+        m_min = minLetters;
+    }
+
+    void setMaxLetters(int16_t maxLetters)
+    {
+        m_max = maxLetters;
+    }
+
 
 protected:
     virtual void addConfig(DynamicJsonDocument &doc)
     {
         Serial.print("Adding config for Text");
+        if(strlen(m_pattern) > 0)
+        {
+            doc["pattern"] = m_pattern;
+        }
+        if(m_min >= 0)
+        {
+            doc["min"] = m_min;
+        }
+        if(m_max >= 0)
+        {
+            doc["max"] = m_max;
+        }
     }
 
 private:
+    char m_pattern[255] = "";
+    int16_t m_min = -1; 
+    int16_t m_max = -1;
 };
 
 class MqttLock : public MqttEntity

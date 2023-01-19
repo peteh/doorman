@@ -28,14 +28,19 @@ String MqttEntity::getHomeAssistantConfigPayload()
         doc["value_template"] = m_valueTemplate;
     }
 
-    if(m_unit[0] != 0)
+    if(strlen(m_unit) > 0)
     {
         doc["unit_of_measurement"] = m_unit;
     }
 
-    if(m_deviceClass[0] != 0)
+    if(strlen(m_deviceClass) > 0)
     {
         doc["device_class"] = m_deviceClass;
+    }
+
+    if(strlen(m_icon) > 0)
+    {
+        doc["icon"] = m_icon;
     }
 
     // add device config

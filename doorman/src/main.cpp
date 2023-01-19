@@ -22,6 +22,9 @@
 #include "utils.h"
 #include "config.h"
 
+#define PIN_BUS_READ D5
+#define PIN_BUS_WRITE D6
+
 WiFiClient net;
 PubSubClient client(net);
 
@@ -55,11 +58,9 @@ MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
 
 MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
 
-
 bool g_partyMode = false;
 
-#define PIN_BUS_READ D5
-#define PIN_BUS_WRITE D6
+
 
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
@@ -71,6 +72,9 @@ bool g_shouldSend = false;
 
 bool g_ledState = false;
 unsigned long g_tsLastLedStateOn = 0;
+
+uint8_t g_handsetLiftup = 0;
+unsigned long g_tsLastHandsetLiftup = 0;
 
 // TODO: wifi auto config
 // TODO: publish persistant
@@ -255,6 +259,18 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void setup()
 {
+    // further mqtt device config
+    mqttBus.setPattern("[a-fA-F0-9]*");
+    mqttBus.setMaxLetters(8);
+    mqttBus.setIcon("mdi:console-network");
+
+    mqttApartmentBell.setIcon("mdi:bell");
+    mqttEntryBell.setIcon("mdi:bell");
+
+    mqttPartyMode.setIcon("mdi:door-closed-lock");
+    mqttEntryOpener.setIcon("mdi:door-open");
+    
+
     pinMode(LED_BUILTIN, OUTPUT);
     // turn on led until boot sequence finished
     blinkLedAsync();
@@ -392,6 +408,27 @@ void loop()
         {
             // we have a party, let everybody in
             openDoor();
+        }
+
+        if(cmd == CODE_HANDSET_LIFTUP)
+        {
+            if(millis() - g_tsLastHandsetLiftup < 2000)
+            {
+                g_handsetLiftup++;
+            }
+            else
+            {
+                g_handsetLiftup = 1;
+            }
+            g_tsLastHandsetLiftup = millis();
+
+            if(g_handsetLiftup == 3)
+            {
+                g_partyMode = !g_partyMode;
+                g_handsetLiftup = 0;
+                blinkLedAsync();
+                publishPartyMode();
+            }
         }
 
         if (cmd == CODE_ENTRY_PATTERN_DETECT)

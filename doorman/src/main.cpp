@@ -55,14 +55,16 @@ MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
 
 MqttSwitch mqttBus(&mqttDevice, "bus", "TCS Bus");
 
-const uint32_t CODE_DOOR_OPENER = 0x1100;                  // use door opener code here (was 0x1100 for mine)
-const uint32_t CODE_DOOR_OPENER_HANDSET_LIFTUP = 0x1180;   // use door opener code here (was 0x1100 for mine)
-const uint32_t CODE_ENTRY_PATTERN_DETECT = 0x0B8F9A80;     // code to detect the pattern on, probably use your main door bell code here
-const uint32_t CODE_APARTMENT_PATTERN_DETECT = 0x1B8F9A41; // code to detect the pattern on, probably use your main door bell code here
-const uint32_t CODE_PARTY_MODE = 0x0B8F9A80;               // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
-
 const uint32_t CODE_APT_DOOR_BELL = 0x1B8F9A41;   // apartment door
 const uint32_t CODE_ENTRY_DOOR_BELL = 0x0B8F9A80; // front door
+const uint32_t CODE_DOOR_OPENER_HANDSET_LIFTUP = 0x1180;   // Code when you lift your handset up
+const uint32_t CODE_DOOR_OPENER = 0x1100;                  // use door opener code here (was 0x1100 for mine)
+
+
+const uint32_t CODE_ENTRY_PATTERN_DETECT = CODE_ENTRY_DOOR_BELL;     // code to detect the pattern on, probably use your main door bell code here
+const uint32_t CODE_APARTMENT_PATTERN_DETECT = CODE_APT_DOOR_BELL; // code to detect the pattern on, probably use your apartment door bell code here
+const uint32_t CODE_PARTY_MODE = CODE_ENTRY_DOOR_BELL;               // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
+
 
 bool partyMode = false;
 
@@ -390,7 +392,7 @@ void loop()
             publishOnOffEdgeSwitch(&mqttEntryBell);
         }
 
-        if (cmd == CODE_DOOR_OPENER || cmd == CODE_DOOR_OPENER_HANDSET_LIFTUP)
+        if (cmd == CODE_DOOR_OPENER)
         {
             publishOnOffEdgeSwitch(&mqttEntryOpener);
         }

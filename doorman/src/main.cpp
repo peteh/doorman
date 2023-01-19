@@ -55,18 +55,8 @@ MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
 
 MqttSwitch mqttBus(&mqttDevice, "bus", "TCS Bus");
 
-const uint32_t CODE_APT_DOOR_BELL = 0x1B8F9A41;   // apartment door
-const uint32_t CODE_ENTRY_DOOR_BELL = 0x0B8F9A80; // front door
-const uint32_t CODE_DOOR_OPENER_HANDSET_LIFTUP = 0x1180;   // Code when you lift your handset up
-const uint32_t CODE_DOOR_OPENER = 0x1100;                  // use door opener code here (was 0x1100 for mine)
 
-
-const uint32_t CODE_ENTRY_PATTERN_DETECT = CODE_ENTRY_DOOR_BELL;     // code to detect the pattern on, probably use your main door bell code here
-const uint32_t CODE_APARTMENT_PATTERN_DETECT = CODE_APT_DOOR_BELL; // code to detect the pattern on, probably use your apartment door bell code here
-const uint32_t CODE_PARTY_MODE = CODE_ENTRY_DOOR_BELL;               // code that we react on to immidiately open the door (e.g. your main door bell or light switch)
-
-
-bool partyMode = false;
+bool g_partyMode = false;
 
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D6
@@ -76,11 +66,11 @@ TriggerPatternRecognition patternRecognitionApartment;
 TCSBusWriter tcsWriter(PIN_BUS_WRITE);
 TCSBusReader tcsReader(PIN_BUS_READ);
 
-uint32_t commandToSend = 0;
-bool shouldSend = false;
+uint32_t g_commandToSend = 0;
+bool g_shouldSend = false;
 
-bool ledState = false;
-unsigned long tsLastLedStateOn = 0;
+bool g_ledState = false;
+unsigned long g_tsLastLedStateOn = 0;
 
 // TODO: cleanup code
 // TODO: wifi auto config
@@ -88,9 +78,9 @@ unsigned long tsLastLedStateOn = 0;
 
 void blinkLedAsync()
 {
-    digitalWrite(LED_BUILTIN, LOW);
-    tsLastLedStateOn = millis();
-    ledState = true;
+    digitalWrite(LED_BUILTIN, LOW ^ g_partyMode);
+    g_tsLastLedStateOn = millis();
+    g_ledState = true;
 }
 
 void publishMqttState(MqttEntity* device, const char *state)
@@ -122,7 +112,7 @@ void publishOnOffEdgeLock(MqttLock *device)
 
 void publishPartyMode()
 {
-    publishMqttState(&mqttPartyMode, partyMode ? mqttPartyMode.getOnState() : mqttPartyMode.getOffState());
+    publishMqttState(&mqttPartyMode, g_partyMode ? mqttPartyMode.getOnState() : mqttPartyMode.getOffState());
 }
 
 void publishConfig(MqttEntity *device)
@@ -227,28 +217,29 @@ void callback(char *topic, byte *payload, unsigned int length)
         char temp[32];
         strncpy(temp, (char *)payload, length);
         uint32_t data = (uint32_t)strtoul(temp, NULL, 16);
-        commandToSend = data;
-        shouldSend = true;
+        g_commandToSend = data;
+        g_shouldSend = true;
     }
     else if (strcmp(topic, mqttEntryBell.getCommandTopic()) == 0)
     {
-        commandToSend = CODE_ENTRY_DOOR_BELL;
-        shouldSend = true;
+        g_commandToSend = CODE_ENTRY_DOOR_BELL;
+        g_shouldSend = true;
     }
     else if (strcmp(topic, mqttApartmentBell.getCommandTopic()) == 0)
     {
-        commandToSend = CODE_APT_DOOR_BELL;
-        shouldSend = true;
+        g_commandToSend = CODE_APT_DOOR_BELL;
+        g_shouldSend = true;
     }
     else if (strcmp(topic, mqttEntryOpener.getCommandTopic()) == 0)
     {
-        commandToSend = CODE_DOOR_OPENER;
-        shouldSend = true;
+        g_commandToSend = CODE_DOOR_OPENER;
+        g_shouldSend = true;
     }
 
     else if (strcmp(topic, mqttPartyMode.getCommandTopic()) == 0)
     {
-        partyMode = strncmp((char *)payload, mqttPartyMode.getOnState(), length) == 0;
+        g_partyMode = strncmp((char *)payload, mqttPartyMode.getOnState(), length) == 0;
+        blinkLedAsync(); // force update of led
         publishPartyMode();
     }
 
@@ -346,12 +337,13 @@ void setup()
 
 void loop()
 {
-    if (ledState)
+    if (g_ledState)
     {
-        if (millis() - tsLastLedStateOn > 50)
+        if (millis() - g_tsLastLedStateOn > 50)
         {
-            ledState = false;
-            digitalWrite(LED_BUILTIN, HIGH);
+            g_ledState = false;
+            // we invert with party mode to make the led constantly light if it's enabled
+            digitalWrite(LED_BUILTIN, HIGH ^ g_partyMode); 
         }
     }
     if (WiFi.status() != WL_CONNECTED)
@@ -364,10 +356,10 @@ void loop()
     }
     client.loop();
     ArduinoOTA.handle();
-    if (shouldSend)
+    if (g_shouldSend)
     {
-        uint32_t cmd = commandToSend;
-        shouldSend = false;
+        uint32_t cmd = g_commandToSend;
+        g_shouldSend = false;
         Serial.printf("Sending: %08x", cmd);
         Serial.println();
         tcsReader.disable();
@@ -397,7 +389,7 @@ void loop()
             publishOnOffEdgeSwitch(&mqttEntryOpener);
         }
 
-        if (partyMode && cmd == CODE_PARTY_MODE)
+        if (g_partyMode && cmd == CODE_PARTY_MODE)
         {
             // we have a party, let everybody in
             openDoor();

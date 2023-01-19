@@ -1,4 +1,6 @@
 #pragma once
+#include <Arduino.h>
+
 char wifi_ssid[] = "iot";        // your network SSID (name)
 char wifi_pass[] = "iotdev1337"; // your network password (use for WPA, or use as key for WEP)
 

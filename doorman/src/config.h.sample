@@ -10,7 +10,7 @@ char mqtt_pass[60] = "";
 
 const uint32_t CODE_APT_DOOR_BELL = 0x1B8F9A41;   // apartment door
 const uint32_t CODE_ENTRY_DOOR_BELL = 0x0B8F9A80; // front door
-const uint32_t CODE_DOOR_OPENER_HANDSET_LIFTUP = 0x1180;   // Code when you lift your handset up
+const uint32_t CODE_HANDSET_LIFTUP = 0x3B8F9A00;   // Code when you lift your handset up
 const uint32_t CODE_DOOR_OPENER = 0x1100;                  // use door opener code here (was 0x1100 for mine)
 
 

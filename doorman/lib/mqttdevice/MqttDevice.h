@@ -61,7 +61,7 @@ public:
 
     void setHasCommandTopic(bool hasCommand)
     {
-        m_hasCommandTopic = true;
+        m_hasCommandTopic = hasCommand;
     }
 
     void getBaseTopic(char *baseTopic_, size_t bufferSize)
@@ -231,6 +231,25 @@ protected:
 private:
     const char *m_stateOn = "on";
     const char *m_stateOff = "off";
+};
+
+class MqttText : public MqttEntity
+{
+public:
+    MqttText(MqttDevice *device, const char *objectId, const char *humanName)
+        : MqttEntity(device, objectId, "text", humanName)
+    {
+        setHasCommandTopic(true);
+    }
+
+
+protected:
+    virtual void addConfig(DynamicJsonDocument &doc)
+    {
+        Serial.print("Adding config for Text");
+    }
+
+private:
 };
 
 class MqttLock : public MqttEntity

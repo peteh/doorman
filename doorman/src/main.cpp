@@ -53,7 +53,7 @@ MqttSwitch mqttEntryOpener(&mqttDevice, "entryopener", "Door Opener");
 
 MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
 
-MqttSwitch mqttBus(&mqttDevice, "bus", "TCS Bus");
+MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
 
 
 bool g_partyMode = false;
@@ -72,9 +72,9 @@ bool g_shouldSend = false;
 bool g_ledState = false;
 unsigned long g_tsLastLedStateOn = 0;
 
-// TODO: cleanup code
 // TODO: wifi auto config
 // TODO: publish persistant
+// TODO: publish mqtt bus as text entity in HA
 
 void blinkLedAsync()
 {
@@ -138,6 +138,8 @@ void publishConfig()
 
     publishConfig(&mqttPartyMode);
 
+    publishConfig(&mqttBus);
+
     delay(1000);
     // publish all initial states
     publishMqttState(&mqttApartmentBell, mqttApartmentBell.getOffState());
@@ -146,11 +148,8 @@ void publishConfig()
     publishMqttState(&mqttEntryBell, mqttEntryBell.getOffState());
     publishMqttState(&mqttEntryBellPattern, mqttEntryBellPattern.getOffState());
     publishMqttState(&mqttEntryOpener, mqttEntryOpener.getOffState());
-
+    publishMqttState(&mqttBus, "");
     publishPartyMode();
-
-    // TODO: we do not publish the bus config as switch is not a good device for it
-    // TODO: publish initial state of devices
 }
 
 void connectToMqtt()

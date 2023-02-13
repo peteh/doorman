@@ -435,6 +435,9 @@ void setup()
     Serial.println(wifi_ssid);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+    char configUrl[256];
+    snprintf(configUrl, sizeof(configUrl), "http://%s/", WiFi.localIP().toString().c_str());
+    mqttDevice.setConfigurationUrl(configUrl);
 
     client.setBufferSize(512);
     client.setServer(mqtt_server, mqtt_port);

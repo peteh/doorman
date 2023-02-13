@@ -5,6 +5,7 @@ class MqttDevice
 {
 public:
     MqttDevice(const char *identifier, const char *name, const char *model, const char *manufacturer)
+        : m_configurationUrl("")
     {
         strncpy(m_identifier, identifier, sizeof(m_identifier));
         strncpy(m_name, name, sizeof(m_name));
@@ -33,11 +34,30 @@ public:
         return m_manufacturer;
     }
 
+    void setConfigurationUrl(char *configurationUrl)
+    {
+        strncpy(m_configurationUrl, configurationUrl, sizeof(m_configurationUrl));
+    }
+
+    void addConfig(DynamicJsonDocument &doc) const
+    {
+        JsonObject device = doc.createNestedObject("device");
+        device["identifiers"][0] = getIdentifier();
+        device["name"] = getName();
+        device["model"] = getModel();
+        device["manufacturer"] = getManufacturer();
+        if (strlen(m_configurationUrl) > 0)
+        {
+            device["configuration_url"] = m_configurationUrl;
+        }
+    }
+
 private:
     char m_identifier[64];
     char m_name[64];
     char m_model[64];
     char m_manufacturer[64];
+    char m_configurationUrl[256];
 };
 
 class MqttEntity
@@ -80,27 +100,27 @@ public:
         return m_stateTopic;
     }
 
-    void setCustomStateTopic(const char* customStateTopic)
+    void setCustomStateTopic(const char *customStateTopic)
     {
         strncpy(m_stateTopic, customStateTopic, sizeof(m_stateTopic));
     }
 
-    void setValueTemplate(const char * valueTemplate)
+    void setValueTemplate(const char *valueTemplate)
     {
         strncpy(m_valueTemplate, valueTemplate, sizeof(m_valueTemplate));
     }
 
-    void setUnit(const char* unit)
+    void setUnit(const char *unit)
     {
         strncpy(m_unit, unit, sizeof(m_unit));
     }
 
-    void setDeviceClass(const char* deviceClass)
+    void setDeviceClass(const char *deviceClass)
     {
         strncpy(m_deviceClass, deviceClass, sizeof(m_deviceClass));
     }
 
-    void setIcon(const char* icon)
+    void setIcon(const char *icon)
     {
         strncpy(m_icon, icon, sizeof(m_icon));
     }
@@ -133,6 +153,16 @@ public:
 
 protected:
     virtual void addConfig(DynamicJsonDocument &doc) = 0;
+
+    const MqttDevice *getDevice()
+    {
+        return m_device;
+    }
+
+    const char *getObjectId()
+    {
+        return m_objectId;
+    }
 
 private:
     const MqttDevice *m_device; // the device this entity belongs to
@@ -259,20 +289,19 @@ public:
         m_max = maxLetters;
     }
 
-
 protected:
     virtual void addConfig(DynamicJsonDocument &doc)
     {
         Serial.print("Adding config for Text");
-        if(strlen(m_pattern) > 0)
+        if (strlen(m_pattern) > 0)
         {
             doc["pattern"] = m_pattern;
         }
-        if(m_min >= 0)
+        if (m_min >= 0)
         {
             doc["min"] = m_min;
         }
-        if(m_max >= 0)
+        if (m_max >= 0)
         {
             doc["max"] = m_max;
         }
@@ -280,7 +309,7 @@ protected:
 
 private:
     char m_pattern[255] = "";
-    int16_t m_min = -1; 
+    int16_t m_min = -1;
     int16_t m_max = -1;
 };
 
@@ -335,4 +364,92 @@ private:
     const char *m_cmdOpen = "open";
     const char *m_stateLocked = "locked";
     const char *m_stateUnlocked = "unlocked";
+};
+
+class MqttCover : public MqttEntity
+{
+public:
+    MqttCover(MqttDevice *device, const char *objectId, const char *humanName)
+        : MqttEntity(device, objectId, "cover", humanName)
+    {
+        setHasCommandTopic(true);
+        snprintf(m_cmdPositionTopic, sizeof(m_cmdPositionTopic), "%s/%s/%s", getDevice()->getIdentifier(), getObjectId(), m_cmdPositionSubTopic);
+        snprintf(m_positionTopic, sizeof(m_positionTopic), "%s/%s/%s", getDevice()->getIdentifier(), getObjectId(), m_positionSubTopic);
+    }
+
+    const char *getCommandPositionTopic()
+    {
+        return m_cmdPositionTopic;
+    }
+
+    const char *getPositionTopic()
+    {
+        return m_positionTopic;
+    }
+
+    const char *getOpenCommand()
+    {
+        return m_cmdOpen;
+    }
+
+    const char *getCloseCommand()
+    {
+        return m_cmdClose;
+    }
+
+    const char *getStopCommand()
+    {
+        return m_cmdStop;
+    }
+
+    const char *getOpeningState()
+    {
+        return m_stateOpening;
+    }
+
+    const char *getClosingState()
+    {
+        return m_stateClosing;
+    }
+
+    const char *getStoppedState()
+    {
+        return m_stateStopped;
+    }
+
+protected:
+    virtual void addConfig(DynamicJsonDocument &doc)
+    {
+        Serial.print("Adding config for Cover");
+        doc["payload_open"] = m_cmdOpen;
+        doc["payload_close"] = m_cmdClose;
+        doc["payload_stop"] = m_cmdStop;
+
+        doc["state_opening"] = m_stateOpening;
+        doc["state_stopped"] = m_stateStopped;
+        doc["state_closing"] = m_stateClosing;
+
+        doc["set_position_topic"] = m_cmdPositionTopic;
+        doc["position_topic"] = m_positionTopic;
+        doc["position_open"] = m_positionOpen;
+        doc["position_closed"] = m_positionClosed;
+    }
+
+private:
+    const char *m_cmdOpen = "open";
+    const char *m_cmdClose = "close";
+    const char *m_cmdStop = "stop";
+
+    const char *m_stateOpening = "opening";
+    const char *m_stateClosing = "closing";
+    const char *m_stateStopped = "stopped";
+
+    const uint8_t m_positionOpen = 100;
+    const uint8_t m_positionClosed = 0;
+
+    const char *m_cmdPositionSubTopic = "cmd_position";
+    const char *m_positionSubTopic = "position";
+
+    char m_cmdPositionTopic[255];
+    char m_positionTopic[255];
 };

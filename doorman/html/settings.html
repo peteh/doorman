@@ -7,19 +7,19 @@
         <table>
             <tr>
                 <td>Apartment Door Bell Code</td>
-                <td><input type="text" name="CodeApartmentDoorBell" value="%08x" /></td>
+                <td><input type="text" name="CodeApartmentDoorBell" value="%08x" maxlength="10" /></td>
             </tr>
             <tr>
                 <td>Entry Door Bell Code</td>
-                <td><input type="text" name="CodeEntryDoorBell" value="%08x" /></td>
+                <td><input type="text" name="CodeEntryDoorBell" value="%08x" maxlength="10" /></td>
             </tr>
             <tr>
                 <td>Handeset Liftup Code</td>
-                <td><input type="text" name="CodeHandsetLiftup" value="%08x" /></td>
+                <td><input type="text" name="CodeHandsetLiftup" value="%08x" maxlength="10" /></td>
             </tr>
             <tr>
                 <td>Door Opener Code</td>
-                <td><input type="text" name="CodeDoorOpener" value="%08x" /></td>
+                <td><input type="text" name="CodeDoorOpener" value="%08x" maxlength="10" /></td>
             </tr>
             <tr>
                 <td>Apartment Door Pattern Detection Code<br />(When this pattern is detected, mqtt message will be
@@ -28,12 +28,12 @@
             </tr>
             <tr>
                 <td>Entry Door Pattern Detection<br />(When this pattern is detected, door opener will be sent)</td>
-                <td><input type="text" name="CodeEntryPatternDetect" value="%08x" /></td>
+                <td><input type="text" name="CodeEntryPatternDetect" value="%08x" maxlength="10" /></td>
             </tr>
             <tr>
                 <td>Entry Door Party Mode<br />(When this code is detected, the Door opener code is sent when party mode
                     is enabled)</td>
-                <td><input type="text" name="CodePartyMode" value="%08x" /></td>
+                <td><input type="text" name="CodePartyMode" value="%08x" maxlength="10" /></td>
             </tr>
         </table>
         <input type="submit" value="save" />

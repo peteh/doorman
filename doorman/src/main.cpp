@@ -1,16 +1,14 @@
 #include <Arduino.h>
-#include <FS.h> //this needs to be first, or it all crashes and burns...
-
 #include <ESP8266WiFi.h> //https://github.com/esp8266/Arduino
 
 // needed for library
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
-#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager
 
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <LittleFS.h>
 
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 #include <PubSubClient.h>
@@ -21,15 +19,31 @@
 
 #include "utils.h"
 #include "config.h"
+#include "html.h"
 
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D6
+#define CONFIG_FILENAME "/config.txt"
 
 WiFiClient net;
 PubSubClient client(net);
+ESP8266WebServer server(80);
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
+
+struct Config
+{
+    uint32_t codeApartmentDoorBell;
+    uint32_t codeEntryDoorBell;
+    uint32_t codeHandsetLiftup;
+    uint32_t codeDoorOpener;
+    uint32_t codeApartmentPatternDetect;
+    uint32_t codeEntryPatternDetect;
+    uint32_t codePartyMode;
+};
+
+Config g_config = {0, 0, 0, 0, 0, 0, 0};
 
 // apartement door:
 //   doorman-[name]/apartment/bell/state -> on/off
@@ -60,8 +74,6 @@ MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
 
 bool g_partyMode = false;
 
-
-
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
 TCSBusWriter tcsWriter(PIN_BUS_WRITE);
@@ -87,13 +99,12 @@ void blinkLedAsync()
     g_ledState = true;
 }
 
-void publishMqttState(MqttEntity* device, const char *state)
+void publishMqttState(MqttEntity *device, const char *state)
 {
     client.publish(device->getStateTopic(), state);
 }
 
-
-void publishOnOffEdgeSwitch(MqttSwitch* device)
+void publishOnOffEdgeSwitch(MqttSwitch *device)
 {
     publishMqttState(device, device->getOnState());
     delay(1000);
@@ -196,11 +207,122 @@ void connectToWifi()
     Serial.println("\n Wifi connected!");
 }
 
+void printSettings()
+{
+    Serial.printf("%s: %08x\n", "Code Apartment Door Bell", g_config.codeApartmentDoorBell);
+    Serial.printf("%s: %08x\n", "Code Entry Door Bell", g_config.codeEntryDoorBell);
+    Serial.printf("%s: %08x\n", "Code Handset Liftup", g_config.codeHandsetLiftup);
+    Serial.printf("%s: %08x\n", "Code Door Opener", g_config.codeDoorOpener);
+    Serial.printf("%s: %08x\n", "Code Apartment Door Pattern Detection", g_config.codeApartmentPatternDetect);
+    Serial.printf("%s: %08x\n", "Code Entry Door Pattern Detection", g_config.codeEntryPatternDetect);
+    Serial.printf("%s: %08x\n", "Code Party Mode", g_config.codePartyMode);
+}
+
+void loadSettings()
+{
+    // Open file for reading
+    // TODO: check if file exists
+    File file = LittleFS.open(CONFIG_FILENAME, "r");
+
+    // Allocate a temporary JsonDocument
+    // Don't forget to change the capacity to match your requirements.
+    // Use arduinojson.org/v6/assistant to compute the capacity.
+    StaticJsonDocument<1024> doc;
+
+    // Deserialize the JSON document
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    {
+        Serial.println(F("Failed to read file, using default configuration"));
+    }
+
+    // Copy values from the JsonDocument to the Config
+    g_config.codeApartmentDoorBell = doc["codeApartmentDoorBell"] | g_config.codeApartmentDoorBell;
+    g_config.codeEntryDoorBell = doc["codeEntryDoorBell"] | g_config.codeEntryDoorBell;
+    g_config.codeHandsetLiftup = doc["codeHandsetLiftup"] | g_config.codeHandsetLiftup;
+    g_config.codeDoorOpener = doc["codeDoorOpener"] | g_config.codeDoorOpener;
+    g_config.codeApartmentPatternDetect = doc["codeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
+    g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
+    g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
+
+    // Close the file (Curiously, File's destructor doesn't close the file)
+    file.close();
+}
+
+void saveSettings()
+{
+    // Open file for writing
+    File file = LittleFS.open(CONFIG_FILENAME, "w");
+    if (!file)
+    {
+        Serial.println("Failed to create file");
+        return;
+    }
+    // Allocate a temporary JsonDocument
+    // Don't forget to change the capacity to match your requirements.
+    // Use arduinojson.org/assistant to compute the capacity.
+    StaticJsonDocument<1024> doc;
+
+    // Set the values in the document
+    doc["codeApartmentDoorBell"] = g_config.codeApartmentDoorBell;
+    doc["codeEntryDoorBell"] = g_config.codeEntryDoorBell;
+    doc["codeHandsetLiftup"] = g_config.codeHandsetLiftup;
+    doc["codeDoorOpener"] = g_config.codeDoorOpener;
+    doc["codeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
+    doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
+    doc["codePartyMode"] = g_config.codePartyMode;
+
+    // Serialize JSON to file
+    if (serializeJson(doc, file) == 0)
+    {
+        Serial.println("Failed to write to file");
+    }
+
+    // Close the file
+    file.close();
+}
+
+void handleSettingsPage()
+{
+    if (server.hasArg("save"))
+    { // Check if body received
+        g_config.codeApartmentDoorBell = (int)strtol(server.arg("CodeApartmentDoorBell").c_str(), 0, 16);
+        g_config.codeEntryDoorBell = (int)strtol(server.arg("CodeEntryDoorBell").c_str(), 0, 16);
+        g_config.codeHandsetLiftup = (int)strtol(server.arg("CodeHandsetLiftup").c_str(), 0, 16);
+        g_config.codeDoorOpener = (int)strtol(server.arg("CodeDoorOpener").c_str(), 0, 16);
+        g_config.codeApartmentPatternDetect = (int)strtol(server.arg("CodeApartmentPatternDetect").c_str(), 0, 16);
+        g_config.codeEntryPatternDetect = (int)strtol(server.arg("CodeEntryPatternDetect").c_str(), 0, 16);
+        g_config.codePartyMode = (int)strtol(server.arg("CodePartyMode").c_str(), 0, 16);
+        printSettings();
+        saveSettings();
+    }
+    char buffer[2000];
+    snprintf(buffer, sizeof(buffer), PAGE_SETTINGS,
+             g_config.codeApartmentDoorBell,
+             g_config.codeEntryDoorBell,
+             g_config.codeHandsetLiftup,
+             g_config.codeDoorOpener,
+             g_config.codeApartmentPatternDetect,
+             g_config.codeEntryPatternDetect,
+             g_config.codePartyMode);
+
+    String message(buffer);
+    server.send(200, "text/html", message);
+}
+
+bool formatLittleFS()
+{
+    Serial.println("need to format LittleFS: ");
+    LittleFS.end();
+    LittleFS.begin();
+    Serial.println(LittleFS.format());
+    return LittleFS.begin();
+}
 
 void openDoor()
 {
     delay(50);
-    tcsWriter.write(CODE_DOOR_OPENER);
+    tcsWriter.write(g_config.codeDoorOpener);
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
@@ -225,17 +347,17 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
     else if (strcmp(topic, mqttEntryBell.getCommandTopic()) == 0)
     {
-        g_commandToSend = CODE_ENTRY_DOOR_BELL;
+        g_commandToSend = g_config.codeEntryDoorBell;
         g_shouldSend = true;
     }
     else if (strcmp(topic, mqttApartmentBell.getCommandTopic()) == 0)
     {
-        g_commandToSend = CODE_APT_DOOR_BELL;
+        g_commandToSend = g_config.codeApartmentDoorBell;
         g_shouldSend = true;
     }
     else if (strcmp(topic, mqttEntryOpener.getCommandTopic()) == 0)
     {
-        g_commandToSend = CODE_DOOR_OPENER;
+        g_commandToSend = g_config.codeDoorOpener;
         g_shouldSend = true;
     }
 
@@ -269,13 +391,28 @@ void setup()
 
     mqttPartyMode.setIcon("mdi:door-closed-lock");
     mqttEntryOpener.setIcon("mdi:door-open");
-    
 
     pinMode(LED_BUILTIN, OUTPUT);
     // turn on led until boot sequence finished
     blinkLedAsync();
 
     Serial.begin(115200);
+
+    if (!LittleFS.begin())
+    {
+        Serial.println("Failed to mount file system");
+        delay(5000);
+        if (!formatLittleFS())
+        {
+            Serial.println("Failed to format file system - hardware issues!");
+            for (;;)
+            {
+                delay(100);
+            }
+        }
+    }
+    loadSettings();
+
     tcsWriter.begin();
     tcsReader.begin();
 
@@ -302,6 +439,10 @@ void setup()
     client.setBufferSize(512);
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
+
+    server.on("/", handleSettingsPage); // Associate the handler function to the path
+    server.begin();                     // Start the server
+    Serial.println("Server listening");
 
     // Port defaults to 8266
     // ArduinoOTA.setPort(8266);
@@ -358,7 +499,7 @@ void loop()
         {
             g_ledState = false;
             // we invert with party mode to make the led constantly light if it's enabled
-            digitalWrite(LED_BUILTIN, HIGH ^ g_partyMode); 
+            digitalWrite(LED_BUILTIN, HIGH ^ g_partyMode);
         }
     }
     if (WiFi.status() != WL_CONNECTED)
@@ -370,6 +511,7 @@ void loop()
         connectToMqtt();
     }
     client.loop();
+    server.handleClient(); // Handling of incoming web requests
     ArduinoOTA.handle();
     if (g_shouldSend)
     {
@@ -389,30 +531,30 @@ void loop()
         blinkLedAsync();
         uint32_t cmd = tcsReader.read();
 
-        if (cmd == CODE_APT_DOOR_BELL)
+        if (cmd == g_config.codeApartmentDoorBell)
         {
             publishOnOffEdgeSwitch(&mqttApartmentBell);
         }
 
-        if (cmd == CODE_ENTRY_DOOR_BELL)
+        if (cmd == g_config.codeEntryDoorBell)
         {
             publishOnOffEdgeSwitch(&mqttEntryBell);
         }
 
-        if (cmd == CODE_DOOR_OPENER)
+        if (cmd == g_config.codeDoorOpener)
         {
             publishOnOffEdgeSwitch(&mqttEntryOpener);
         }
 
-        if (g_partyMode && cmd == CODE_PARTY_MODE)
+        if (g_partyMode && cmd == g_config.codePartyMode)
         {
             // we have a party, let everybody in
             openDoor();
         }
 
-        if(cmd == CODE_HANDSET_LIFTUP)
+        if (cmd == g_config.codeHandsetLiftup)
         {
-            if(millis() - g_tsLastHandsetLiftup < 2000)
+            if (millis() - g_tsLastHandsetLiftup < 2000)
             {
                 g_handsetLiftup++;
             }
@@ -422,7 +564,7 @@ void loop()
             }
             g_tsLastHandsetLiftup = millis();
 
-            if(g_handsetLiftup == 3)
+            if (g_handsetLiftup == 3)
             {
                 g_partyMode = !g_partyMode;
                 g_handsetLiftup = 0;
@@ -431,7 +573,7 @@ void loop()
             }
         }
 
-        if (cmd == CODE_ENTRY_PATTERN_DETECT)
+        if (cmd == g_config.codeEntryPatternDetect)
         {
             if (patternRecognitionEntry.trigger())
             {
@@ -440,7 +582,7 @@ void loop()
             }
         }
 
-        if (cmd == CODE_APARTMENT_PATTERN_DETECT)
+        if (cmd == g_config.codeApartmentPatternDetect)
         {
             if (patternRecognitionApartment.trigger())
             {

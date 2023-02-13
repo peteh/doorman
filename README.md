@@ -52,9 +52,17 @@ The P line can be used for power supply. You can also skip the part and power th
 * 1x 330 Ohm resistor (only needed to wire a led)
 * 2x 1.2 Ohm resistors
 
+## TODO
+
+There are still a view things open.
+
+* Refactor config management, it's a lot of code duplication at the moment
+* Save configuration entries from Homeassistant, currently it only shows them
+* Maybe allow wifi/mqtt configuration without the need for project compilation
+
 ## Credits
 
-Doorman is heavily built on the code and the information of the following two projects: 
+Doorman is heavily built on the code and the information of the following two projects:
 
 **TCSIntercomArduino** different methods to read from and write to TCS bus \
 Reverse Engineering video: <https://www.youtube.com/watch?v=xFLoauqj9yA&t=11s> \

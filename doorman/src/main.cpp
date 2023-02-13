@@ -72,6 +72,15 @@ MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
 
 MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
 
+// Configuration Settings
+MqttText mqttConfigCodeApartmentDoorBell(&mqttDevice, "config_code_apartment_door_bell", "Apartment Door Bell Code");
+MqttText mqttConfigCodeEntryDoorBell(&mqttDevice, "config_code_entry_door_bell", "Entry Door Bell Code");
+MqttText mqttConfigCodeHandsetLiftup(&mqttDevice, "config_code_handset_liftup", "Handset Liftup Code");
+MqttText mqttConfigCodeDoorOpener(&mqttDevice, "config_code_door_opener", "Entry Door Opener Code");
+MqttText mqttConfigCodeApartmentPatternDetect(&mqttDevice, "config_code_apartment_pattern_detected", "Apartment Pattern Detected Code");
+MqttText mqttConfigCodeEntryPatternDetect(&mqttDevice, "config_code_entry_pattern_detected", "Entry Pattern Detected Code");
+MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party Mode Code");
+
 bool g_partyMode = false;
 
 TriggerPatternRecognition patternRecognitionEntry;
@@ -104,6 +113,13 @@ void publishMqttState(MqttEntity *device, const char *state)
     client.publish(device->getStateTopic(), state);
 }
 
+void publishMqttConfigState(MqttEntity *device, const uint32_t value)
+{
+    char state[9];
+    snprintf(state, sizeof(state), "%08x", value);
+    client.publish(device->getStateTopic(), state);
+}
+
 void publishOnOffEdgeSwitch(MqttSwitch *device)
 {
     publishMqttState(device, device->getOnState());
@@ -128,6 +144,18 @@ void publishOnOffEdgeLock(MqttLock *device)
 void publishPartyMode()
 {
     publishMqttState(&mqttPartyMode, g_partyMode ? mqttPartyMode.getOnState() : mqttPartyMode.getOffState());
+}
+
+void publishConfigValues()
+{
+
+    publishMqttConfigState(&mqttConfigCodeApartmentDoorBell, g_config.codeApartmentDoorBell);
+    publishMqttConfigState(&mqttConfigCodeEntryDoorBell, g_config.codeEntryDoorBell);
+    publishMqttConfigState(&mqttConfigCodeHandsetLiftup, g_config.codeHandsetLiftup);
+    publishMqttConfigState(&mqttConfigCodeDoorOpener, g_config.codeDoorOpener);
+    publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
+    publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
+    publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
 }
 
 void publishConfig(MqttEntity *device)
@@ -155,6 +183,14 @@ void publishConfig()
 
     publishConfig(&mqttBus);
 
+    publishConfig(&mqttConfigCodeApartmentDoorBell);
+    publishConfig(&mqttConfigCodeEntryDoorBell);
+    publishConfig(&mqttConfigCodeHandsetLiftup);
+    publishConfig(&mqttConfigCodeDoorOpener);
+    publishConfig(&mqttConfigCodeApartmentPatternDetect);
+    publishConfig(&mqttConfigCodeEntryPatternDetect);
+    publishConfig(&mqttConfigCodePartyMode);
+
     delay(1000);
     // publish all initial states
     publishMqttState(&mqttApartmentBell, mqttApartmentBell.getOffState());
@@ -165,6 +201,8 @@ void publishConfig()
     publishMqttState(&mqttEntryOpener, mqttEntryOpener.getOffState());
     publishMqttState(&mqttBus, "");
     publishPartyMode();
+
+    publishConfigValues();
 }
 
 void connectToMqtt()
@@ -391,6 +429,27 @@ void setup()
 
     mqttPartyMode.setIcon("mdi:door-closed-lock");
     mqttEntryOpener.setIcon("mdi:door-open");
+
+    mqttConfigCodeApartmentDoorBell.setMaxLetters(8);
+    mqttConfigCodeApartmentDoorBell.setEntityType(EntityCategory::CONFIG);
+
+    mqttConfigCodeEntryDoorBell.setMaxLetters(8);
+    mqttConfigCodeEntryDoorBell.setEntityType(EntityCategory::CONFIG);
+
+    mqttConfigCodeHandsetLiftup.setMaxLetters(8);
+    mqttConfigCodeHandsetLiftup.setEntityType(EntityCategory::CONFIG);
+
+    mqttConfigCodeDoorOpener.setMaxLetters(8);
+    mqttConfigCodeDoorOpener.setEntityType(EntityCategory::CONFIG);
+
+    mqttConfigCodeApartmentPatternDetect.setMaxLetters(8);
+    mqttConfigCodeApartmentPatternDetect.setEntityType(EntityCategory::CONFIG);
+
+    mqttConfigCodeEntryPatternDetect.setMaxLetters(8);
+    mqttConfigCodeEntryPatternDetect.setEntityType(EntityCategory::CONFIG);
+
+    mqttConfigCodePartyMode.setMaxLetters(8);
+    mqttConfigCodePartyMode.setEntityType(EntityCategory::CONFIG);
 
     pinMode(LED_BUILTIN, OUTPUT);
     // turn on led until boot sequence finished

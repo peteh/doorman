@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+
+enum EntityCategory { NONE, DIAGNOSTIC, CONFIG };
+
 class MqttDevice
 {
 public:
@@ -125,6 +128,11 @@ public:
         strncpy(m_icon, icon, sizeof(m_icon));
     }
 
+    void setEntityType(EntityCategory type)
+    {
+        m_entityType = type;
+    }
+
     const char *getHumanName()
     {
         return m_humanName;
@@ -178,6 +186,8 @@ private:
     char m_unit[10] = "";
     char m_deviceClass[32] = "";
     char m_icon[128] = "";
+
+    EntityCategory m_entityType = EntityCategory::NONE;
 
     const char *m_cmdSubTopic = "cmd";
     const char *m_stateSubTopic = "state";

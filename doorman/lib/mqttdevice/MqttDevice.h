@@ -174,9 +174,9 @@ protected:
 
 private:
     const MqttDevice *m_device; // the device this entity belongs to
-    char m_objectId[32];        // our actual device identifier, e.g. doorbell, must be unique within the nodeid
+    char m_objectId[64];        // our actual device identifier, e.g. doorbell, must be unique within the nodeid
     char m_type[16];            // mqtt device type, e.g. switch
-    char m_uniqueId[96];        // the unique identifier, e.g. doorman2323-doorbell
+    char m_uniqueId[128];        // the unique identifier, e.g. doorman2323-doorbell
     char m_humanName[64];       // human readbable name, e.g. Door Bell
 
     bool m_hasCommandTopic = false;

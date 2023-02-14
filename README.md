@@ -22,12 +22,11 @@ Party mode can be turned on or off by using the switch on in Homeassistant, or b
 
 Connect doorman to an mqtt broker by setting up WiFi credentials and mqtt broker.
 
-If you already have Homeassistant configured with the mqtt integration on the same broker, you should see a text entity called "TCS Bus". This entity allows to read all messages from the bus. Do the action for the signal you want to get the code of (apartment door bell, entry door bell or lifting up your handset). In the history of the TCS Bus entity you should see all codes that have been read from the bus.
+If you already have Homeassistant configured with the mqtt integration on the same broker, go to Settings -> Devices -> Doorman. You should see a text entity called "TCS Bus". This entity allows to read all messages from the bus and write to the bus. Do the action for the signal you want to get the code of (apartment door bell, entry door bell or lifting up your handset). In the history of the TCS Bus entity you should see all codes that have been read from the bus. Then you can copy the values to the configuration settings in the home assistant device.
 
 The codes that are specific to your flat are the long ones (without 0000 prefix).
 
 ![TCS Bus](doc/tcsbus.png)
-
 
 ## Wiring
 

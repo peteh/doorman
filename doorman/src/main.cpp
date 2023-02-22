@@ -1,16 +1,26 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h> //https://github.com/esp8266/Arduino
+
 
 // needed for library
 #include <DNSServer.h>
-#include <ESP8266WebServer.h>
 
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+#endif
+
+#ifdef ESP32
+#include <WiFi.h>
+#include <WebServer.h>
+#include <mdns.h>
+#endif
+
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
 
-#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
+#include <ArduinoJson.h> 
 #include <PubSubClient.h>
 #include <TCSBus.h>
 #include <TriggerPatternRecognition.h>
@@ -21,13 +31,29 @@
 #include "config.h"
 #include "html.h"
 
+#ifdef ESP8266
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D6
+#endif
+
+#ifdef ESP32
+#define PIN_BUS_READ 7
+#define PIN_BUS_WRITE 9
+#endif
+
 #define CONFIG_FILENAME "/config.txt"
 
 WiFiClient net;
 PubSubClient client(net);
+
+#ifdef ESP8266
 ESP8266WebServer server(80);
+#endif
+
+#ifdef ESP32
+WebServer server(80);
+#endif
+
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
@@ -99,7 +125,6 @@ unsigned long g_tsLastHandsetLiftup = 0;
 
 // TODO: wifi auto config
 // TODO: publish persistant
-// TODO: publish mqtt bus as text entity in HA
 
 void blinkLedAsync()
 {

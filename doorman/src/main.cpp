@@ -1,6 +1,5 @@
 #include <Arduino.h>
 
-
 // needed for library
 #include <DNSServer.h>
 
@@ -19,8 +18,9 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
+#include <esplog.h>
 
-#include <ArduinoJson.h> 
+#include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <TCSBus.h>
 #include <TriggerPatternRecognition.h>
@@ -231,12 +231,12 @@ void publishConfig()
 
 void connectToMqtt()
 {
-    Serial.print("\nconnecting to MQTT...");
+    log_info("Connecting to MQTT...");
     // TODO: add security settings back to mqtt
     // while (!client.connect(mqtt_client, mqtt_user, mqtt_pass))
     while (!client.connect(composeClientID().c_str()))
     {
-        Serial.print(".");
+        log_debug(".");
         delay(4000);
     }
 
@@ -248,7 +248,7 @@ void connectToMqtt()
     client.subscribe(mqttPartyMode.getCommandTopic(), 1);
 
     client.subscribe(mqttBus.getCommandTopic(), 1);
-    
+
     client.subscribe(mqttConfigCodeApartmentDoorBell.getCommandTopic(), 1);
     client.subscribe(mqttConfigCodeEntryDoorBell.getCommandTopic(), 1);
     client.subscribe(mqttConfigCodeHandsetLiftup.getCommandTopic(), 1);
@@ -267,25 +267,25 @@ void connectToMqtt()
 
 void connectToWifi()
 {
-    Serial.print("Connecting to wifi...");
+    log_info("Connecting to wifi...");
     // TODO: really forever? What if we want to go back to autoconnect?
     while (WiFi.status() != WL_CONNECTED)
     {
-        Serial.print(".");
+        log_debug(".");
         delay(1000);
     }
-    Serial.println("\n Wifi connected!");
+    log_info("Wifi connected!");
 }
 
 void printSettings()
 {
-    Serial.printf("%s: %08x\n", "Code Apartment Door Bell", g_config.codeApartmentDoorBell);
-    Serial.printf("%s: %08x\n", "Code Entry Door Bell", g_config.codeEntryDoorBell);
-    Serial.printf("%s: %08x\n", "Code Handset Liftup", g_config.codeHandsetLiftup);
-    Serial.printf("%s: %08x\n", "Code Door Opener", g_config.codeDoorOpener);
-    Serial.printf("%s: %08x\n", "Code Apartment Door Pattern Detection", g_config.codeApartmentPatternDetect);
-    Serial.printf("%s: %08x\n", "Code Entry Door Pattern Detection", g_config.codeEntryPatternDetect);
-    Serial.printf("%s: %08x\n", "Code Party Mode", g_config.codePartyMode);
+    log_info("%s: %08x", "Code Apartment Door Bell", g_config.codeApartmentDoorBell);
+    log_info("%s: %08x", "Code Entry Door Bell", g_config.codeEntryDoorBell);
+    log_info("%s: %08x", "Code Handset Liftup", g_config.codeHandsetLiftup);
+    log_info("%s: %08x", "Code Door Opener", g_config.codeDoorOpener);
+    log_info("%s: %08x", "Code Apartment Door Pattern Detection", g_config.codeApartmentPatternDetect);
+    log_info("%s: %08x", "Code Entry Door Pattern Detection", g_config.codeEntryPatternDetect);
+    log_info("%s: %08x", "Code Party Mode", g_config.codePartyMode);
 }
 
 void loadSettings()
@@ -303,7 +303,7 @@ void loadSettings()
     DeserializationError error = deserializeJson(doc, file);
     if (error)
     {
-        Serial.println(F("Failed to read file, using default configuration"));
+        log_error(F("Failed to read file, using default configuration"));
     }
 
     // Copy values from the JsonDocument to the Config
@@ -325,7 +325,7 @@ void saveSettings()
     File file = LittleFS.open(CONFIG_FILENAME, "w");
     if (!file)
     {
-        Serial.println("Failed to create file");
+        log_error("Failed to create config file");
         return;
     }
     // Allocate a temporary JsonDocument
@@ -345,7 +345,7 @@ void saveSettings()
     // Serialize JSON to file
     if (serializeJson(doc, file) == 0)
     {
-        Serial.println("Failed to write to file");
+        log_error("Failed to write config to file");
     }
 
     // Close the file
@@ -382,10 +382,10 @@ void handleSettingsPage()
 
 bool formatLittleFS()
 {
-    Serial.println("need to format LittleFS: ");
+    log_warn("need to format LittleFS: ");
     LittleFS.end();
     LittleFS.begin();
-    Serial.println(LittleFS.format());
+    log_info("Success: %d", LittleFS.format());
     return LittleFS.begin();
 }
 
@@ -405,9 +405,7 @@ uint32_t parseValue(const char *data, unsigned int length)
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
+    log_info("Message arrived [%s]", topic);
     for (unsigned int i = 0; i < length; i++)
     {
         Serial.print((char)payload[i]);
@@ -547,11 +545,11 @@ void setup()
 
     if (!LittleFS.begin())
     {
-        Serial.println("Failed to mount file system");
+        log_error("Failed to mount file system");
         delay(5000);
         if (!formatLittleFS())
         {
-            Serial.println("Failed to format file system - hardware issues!");
+            log_error("Failed to format file system - hardware issues!");
             for (;;)
             {
                 delay(100);
@@ -577,11 +575,8 @@ void setup()
 
     connectToWifi();
 
-    Serial.println();
-    Serial.print("Connected to SSID: ");
-    Serial.println(wifi_ssid);
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    log_info("Connected to SSID: %s", wifi_ssid);
+    log_info("IP address: %s", WiFi.localIP().toString().c_str());
     char configUrl[256];
     snprintf(configUrl, sizeof(configUrl), "http://%s/", WiFi.localIP().toString().c_str());
     mqttDevice.setConfigurationUrl(configUrl);
@@ -592,7 +587,7 @@ void setup()
 
     server.on("/", handleSettingsPage); // Associate the handler function to the path
     server.begin();                     // Start the server
-    Serial.println("Server listening");
+    log_info("Server listening");
 
     // Port defaults to 8266
     // ArduinoOTA.setPort(8266);
@@ -617,24 +612,24 @@ void setup()
     }
 
     // NOTE: if updating FS this would be the place to unmount FS using FS.end()
-    Serial.println("Start updating " + type); });
+    log_info("Start updating %s", type.c_str()); });
     ArduinoOTA.onEnd([]()
-                     { Serial.println("\nEnd"); });
+                     { log_info("End"); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+                          { log_info("Progress: %u%%\r", (progress / (total / 100))); });
     ArduinoOTA.onError([](ota_error_t error)
                        {
-    Serial.printf("Error[%u]: ", error);
+    log_error("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) {
-      Serial.println("Auth Failed");
+      log_error("Auth Failed");
     } else if (error == OTA_BEGIN_ERROR) {
-      Serial.println("Begin Failed");
+      log_error("Begin Failed");
     } else if (error == OTA_CONNECT_ERROR) {
-      Serial.println("Connect Failed");
+      log_error("Connect Failed");
     } else if (error == OTA_RECEIVE_ERROR) {
-      Serial.println("Receive Failed");
+      log_error("Receive Failed");
     } else if (error == OTA_END_ERROR) {
-      Serial.println("End Failed");
+      log_error("End Failed");
     } });
     ArduinoOTA.begin();
 
@@ -667,8 +662,7 @@ void loop()
     {
         uint32_t cmd = g_commandToSend;
         g_shouldSend = false;
-        Serial.printf("Sending: %08x", cmd);
-        Serial.println();
+        log_info("Sending: %08x", cmd);
         tcsReader.disable();
         tcsWriter.write(cmd);
         tcsReader.enable();
@@ -740,9 +734,7 @@ void loop()
             }
         }
 
-        Serial.print("TCS Bus: 0x");
-        printHEX(cmd);
-        Serial.println();
+        log_info("TCS Bus: %08x", cmd);
 
         char byte_cmd[9];
         sprintf(byte_cmd, "%08x", cmd);

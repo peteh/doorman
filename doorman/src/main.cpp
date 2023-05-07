@@ -600,7 +600,7 @@ void setup()
     snprintf(configUrl, sizeof(configUrl), "http://%s/", WiFi.localIP().toString().c_str());
     mqttDevice.setConfigurationUrl(configUrl);
 
-    client.setBufferSize(512);
+    client.setBufferSize(1024);
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
 

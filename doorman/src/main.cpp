@@ -66,9 +66,10 @@ struct Config
     uint32_t codeApartmentPatternDetect;
     uint32_t codeEntryPatternDetect;
     uint32_t codePartyMode;
+    uint32_t restartCounter;
 };
 
-Config g_config = {0, 0, 0, 0, 0, 0, 0};
+Config g_config = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // apartement door:
 //   doorman-[name]/apartment/bell/state -> on/off
@@ -105,6 +106,8 @@ MqttText mqttConfigCodeDoorOpener(&mqttDevice, "config_code_door_opener", "Entry
 MqttText mqttConfigCodeApartmentPatternDetect(&mqttDevice, "config_code_apartment_pattern_detected", "Apartment Pattern Detected Code");
 MqttText mqttConfigCodeEntryPatternDetect(&mqttDevice, "config_code_entry_pattern_detected", "Entry Pattern Detected Code");
 MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party Mode Code");
+
+MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Doorman Restart Counter");
 
 bool g_partyMode = false;
 
@@ -150,6 +153,13 @@ void publishMqttConfigState(MqttEntity *entity, const uint32_t value)
     }
 }
 
+void publishMqttRestartCounterState(MqttEntity *entity, const uint32_t value)
+{
+    char state[9];
+    snprintf(state, sizeof(state), "%u", value);
+    client.publish(entity->getStateTopic(), state);
+}
+
 void publishOnOffEdgeSwitch(MqttSwitch *entity)
 {
     publishMqttState(entity, entity->getOnState());
@@ -185,6 +195,7 @@ void publishConfigValues()
     publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
     publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
     publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
+    publishMqttRestartCounterState(&mqttDiagnosticsRestartCounter, g_config.restartCounter);
 }
 
 void publishConfig(MqttEntity *entity)
@@ -223,6 +234,7 @@ void publishConfig()
     publishConfig(&mqttConfigCodeApartmentPatternDetect);
     publishConfig(&mqttConfigCodeEntryPatternDetect);
     publishConfig(&mqttConfigCodePartyMode);
+    publishConfig(&mqttDiagnosticsRestartCounter);
 
     delay(1000);
     // publish all initial states
@@ -332,6 +344,7 @@ void loadSettings()
     g_config.codeApartmentPatternDetect = doc["codeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
     g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
     g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
+    g_config.restartCounter = doc["restartCounter"] | g_config.restartCounter;
 
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
@@ -359,6 +372,7 @@ void saveSettings()
     doc["codeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
     doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
     doc["codePartyMode"] = g_config.codePartyMode;
+    doc["restartCounter"] = g_config.restartCounter;
 
     // Serialize JSON to file
     if (serializeJson(doc, file) == 0)
@@ -555,6 +569,9 @@ void setup()
     mqttConfigCodePartyMode.setMaxLetters(8);
     mqttConfigCodePartyMode.setEntityType(EntityCategory::CONFIG);
 
+    mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
+    mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL_INCREASING);
+
     pinMode(LED_BUILTIN, OUTPUT);
     // turn on led until boot sequence finished
     blinkLedAsync();
@@ -575,6 +592,8 @@ void setup()
         }
     }
     loadSettings();
+    g_config.restartCounter++;
+    saveSettings();
 
     tcsWriter.begin();
     tcsReader.begin();
@@ -599,7 +618,7 @@ void setup()
     snprintf(configUrl, sizeof(configUrl), "http://%s/", WiFi.localIP().toString().c_str());
     mqttDevice.setConfigurationUrl(configUrl);
 
-    client.setBufferSize(512);
+    client.setBufferSize(1024);
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
 

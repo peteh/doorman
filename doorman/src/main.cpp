@@ -588,8 +588,8 @@ void setup()
     patternRecognitionApartment.addStep(1000);
     patternRecognitionApartment.addStep(1000);
 
+    WiFi.setHostname(composeClientID().c_str());
     WiFi.mode(WIFI_STA);
-    WiFi.hostname(composeClientID().c_str());
     WiFi.begin(wifi_ssid, wifi_pass);
 
     connectToWifi();

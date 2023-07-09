@@ -54,7 +54,6 @@ ESP8266WebServer server(80);
 WebServer server(80);
 #endif
 
-
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
@@ -136,16 +135,22 @@ void blinkLedAsync()
     g_ledState = true;
 }
 
-void publishMqttState(MqttEntity *device, const char *state)
+void publishMqttState(MqttEntity *entity, const char *state)
 {
-    client.publish(device->getStateTopic(), state);
+    if (!client.publish(entity->getStateTopic(), state))
+    {
+        log_error("Failed to publish state to %s", entity->getStateTopic());
+    }
 }
 
 void publishMqttConfigState(MqttEntity *entity, const uint32_t value)
 {
     char state[9];
     snprintf(state, sizeof(state), "%08x", value);
-    client.publish(entity->getStateTopic(), state);
+    if (!client.publish(entity->getStateTopic(), state))
+    {
+        log_error("Failed to publish state to %s", entity->getStateTopic());
+    }
 }
 
 void publishMqttRestartCounterState(MqttEntity *entity, const uint32_t value)
@@ -193,16 +198,20 @@ void publishConfigValues()
     publishMqttRestartCounterState(&mqttDiagnosticsRestartCounter, g_config.restartCounter);
 }
 
-void publishConfig(MqttEntity *device)
+void publishConfig(MqttEntity *entity)
 {
-    String payload = device->getHomeAssistantConfigPayload();
+    String payload = entity->getHomeAssistantConfigPayload();
     char topic[255];
-    device->getHomeAssistantConfigTopic(topic, sizeof(topic));
-    client.publish(topic, payload.c_str());
-
-    device->getHomeAssistantConfigTopicAlt(topic, sizeof(topic));
-    client.publish(topic,
-                   payload.c_str());
+    entity->getHomeAssistantConfigTopic(topic, sizeof(topic));
+    if (!client.publish(topic, payload.c_str()))
+    {
+        log_error("Failed to publish config to %s", entity->getStateTopic());
+    }
+    entity->getHomeAssistantConfigTopicAlt(topic, sizeof(topic));
+    if (!client.publish(topic, payload.c_str()))
+    {
+        log_error("Failed to publish config to %s", entity->getStateTopic());
+    }
 }
 
 void publishConfig()
@@ -244,12 +253,21 @@ void publishConfig()
 void connectToMqtt()
 {
     log_info("Connecting to MQTT...");
-    // TODO: add security settings back to mqtt
-    // while (!client.connect(mqtt_client, mqtt_user, mqtt_pass))
-    while (!client.connect(composeClientID().c_str()))
+    if (strlen(mqtt_user) == 0)
     {
-        log_debug(".");
-        delay(4000);
+        while (!client.connect(composeClientID().c_str()))
+        {
+            log_debug(".");
+            delay(4000);
+        }
+    }
+    else
+    {
+        while (!client.connect(composeClientID().c_str(), mqtt_user, mqtt_pass))
+        {
+            log_debug(".");
+            delay(4000);
+        }
     }
 
     client.subscribe(mqttApartmentBell.getCommandTopic(), 1);
@@ -757,6 +775,9 @@ void loop()
 
         char byte_cmd[9];
         sprintf(byte_cmd, "%08x", cmd);
-        client.publish(mqttBus.getStateTopic(), byte_cmd);
+        if (!client.publish(mqttBus.getStateTopic(), byte_cmd))
+        {
+            log_error("Failed to publish tcs data to %s", mqttBus.getStateTopic());
+        }
     }
 }

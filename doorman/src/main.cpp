@@ -34,11 +34,13 @@
 #ifdef ESP8266
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D6
+#define SYSTEM_NAME "ESP8266 Doorman"
 #endif
 
 #ifdef ESP32
-#define PIN_BUS_READ 7
-#define PIN_BUS_WRITE 9
+#define PIN_BUS_READ 12
+#define PIN_BUS_WRITE 13
+#define SYSTEM_NAME "ESP32 Doorman"
 #endif
 
 #define CONFIG_FILENAME "/config.txt"
@@ -52,6 +54,19 @@ ESP8266WebServer server(80);
 
 #ifdef ESP32
 WebServer server(80);
+#endif
+
+#ifdef ARDUINO_LOLIN_S3_MINI
+#define SUPPORT_RGB_LED 1
+#define RGB_LED_PIN 47
+#endif
+
+#ifdef SUPPORT_RGB_LED
+#include "led_rgb.h"
+Led *g_led = new LedRGB(RGB_LED_PIN);
+#else
+#include "led_builtin.h"
+Led *g_led = new LedBuiltin(LED_BUILTIN);
 #endif
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
@@ -86,7 +101,7 @@ Config g_config = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // 0x1B8F9A41 own door bell at the flat door	feilipu/FreeRTOS@^10.4.6-1
 // 0x0B8F9A80 own door bell at the main door
-MqttDevice mqttDevice(composeClientID().c_str(), "Doorman", "ESP8622 Doorman", "maker_pt");
+MqttDevice mqttDevice(composeClientID().c_str(), "Doorman", SYSTEM_NAME, "maker_pt");
 MqttSwitch mqttApartmentBell(&mqttDevice, "apartmentbell", "Apartment Bell");
 MqttBinarySensor mqttApartmentBellPattern(&mqttDevice, "apartmentbellpattern", "Apartment Bell Pattern");
 
@@ -127,13 +142,6 @@ unsigned long g_tsLastHandsetLiftup = 0;
 
 // TODO: wifi auto config
 // TODO: publish persistant
-
-void blinkLedAsync()
-{
-    digitalWrite(LED_BUILTIN, LOW ^ g_partyMode);
-    g_tsLastLedStateOn = millis();
-    g_ledState = true;
-}
 
 void publishMqttState(MqttEntity *entity, const char *state)
 {
@@ -433,7 +441,7 @@ void handleSaveConfig()
 
 void handleSettingsPage()
 {
-    server.send_P(200, "text/html", PAGE_SETTINGS);//, sizeof(PAGE_SETTINGS));
+    server.send_P(200, "text/html", PAGE_SETTINGS); //, sizeof(PAGE_SETTINGS));
 }
 
 bool formatLittleFS()
@@ -493,7 +501,8 @@ void callback(char *topic, byte *payload, unsigned int length)
     else if (strcmp(topic, mqttPartyMode.getCommandTopic()) == 0)
     {
         g_partyMode = strncmp((char *)payload, mqttPartyMode.getOnState(), length) == 0;
-        blinkLedAsync(); // force update of led
+        g_led->setBackgroundLight(g_partyMode);
+        g_led->blinkAsync(); // force update of led
         publishPartyMode();
     }
 
@@ -596,9 +605,9 @@ void setup()
     mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
     mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL_INCREASING);
 
-    pinMode(LED_BUILTIN, OUTPUT);
+    g_led->begin();
     // turn on led until boot sequence finished
-    blinkLedAsync();
+    g_led->blinkAsync();
 
     Serial.begin(115200);
 
@@ -701,15 +710,7 @@ void setup()
 
 void loop()
 {
-    if (g_ledState)
-    {
-        if (millis() - g_tsLastLedStateOn > 50)
-        {
-            g_ledState = false;
-            // we invert with party mode to make the led constantly light if it's enabled
-            digitalWrite(LED_BUILTIN, HIGH ^ g_partyMode);
-        }
-    }
+    g_led->update();
     if (WiFi.status() != WL_CONNECTED)
     {
         connectToWifi();
@@ -731,11 +732,11 @@ void loop()
         tcsReader.enable();
         // dirty hack to also publish commands we have written
         tcsReader.inject(cmd);
-        blinkLedAsync();
+        g_led->blinkAsync();
     }
     if (tcsReader.hasCommand())
     {
-        blinkLedAsync();
+        g_led->blinkAsync();
         uint32_t cmd = tcsReader.read();
 
         if (cmd == g_config.codeApartmentDoorBell)
@@ -775,7 +776,8 @@ void loop()
             {
                 g_partyMode = !g_partyMode;
                 g_handsetLiftup = 0;
-                blinkLedAsync();
+                g_led->setBackgroundLight(g_partyMode);
+                g_led->blinkAsync();
                 publishPartyMode();
             }
         }

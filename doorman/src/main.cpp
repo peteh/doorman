@@ -407,6 +407,7 @@ void handleGetConfig()
     doc["CodeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
     doc["CodePartyMode"] = g_config.codePartyMode;
     doc["RestartCounter"] = g_config.restartCounter;
+    doc["Version"] = SYSTEM_NAME " (" __DATE__ ")";
 
     serializeJson(doc, configJson);
     server.send(200, "application/json", configJson);

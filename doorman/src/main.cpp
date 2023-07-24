@@ -433,7 +433,7 @@ void handleSaveConfig()
 
 void handleSettingsPage()
 {
-    server.send(200, "text/html", PAGE_SETTINGS, sizeof(PAGE_SETTINGS));
+    server.send_P(200, "text/html", PAGE_SETTINGS);//, sizeof(PAGE_SETTINGS));
 }
 
 bool formatLittleFS()

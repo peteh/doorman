@@ -309,13 +309,13 @@ void connectToWifi()
 
 void printSettings()
 {
-    log_info("%s: %08x", "Code Apartment Door Bell", g_config.codeApartmentDoorBell);
-    log_info("%s: %08x", "Code Entry Door Bell", g_config.codeEntryDoorBell);
-    log_info("%s: %08x", "Code Handset Liftup", g_config.codeHandsetLiftup);
-    log_info("%s: %08x", "Code Door Opener", g_config.codeDoorOpener);
-    log_info("%s: %08x", "Code Apartment Door Pattern Detection", g_config.codeApartmentPatternDetect);
-    log_info("%s: %08x", "Code Entry Door Pattern Detection", g_config.codeEntryPatternDetect);
-    log_info("%s: %08x", "Code Party Mode", g_config.codePartyMode);
+    log_info("Code Apartment Door Bell: %08x", g_config.codeApartmentDoorBell);
+    log_info("Code Entry Door Bell: %08x", g_config.codeEntryDoorBell);
+    log_info("Code Handset Liftup: %08x", g_config.codeHandsetLiftup);
+    log_info("Code Door Opener: %08x", g_config.codeDoorOpener);
+    log_info("Code Apartment Door Pattern Detection: %08x", g_config.codeApartmentPatternDetect);
+    log_info("Code Entry Door Pattern Detection: %08x", g_config.codeEntryPatternDetect);
+    log_info("Code Party Mode: %08x", g_config.codePartyMode);
 }
 
 void loadSettings()
@@ -384,32 +384,56 @@ void saveSettings()
     file.close();
 }
 
+void handleGetConfig()
+{
+    // Respond with the current configuration in JSON format
+    String configJson;
+    StaticJsonDocument<1024> doc;
+
+    // Set the values in the document
+    doc["CodeApartmentDoorBell"] = g_config.codeApartmentDoorBell;
+    doc["CodeEntryDoorBell"] = g_config.codeEntryDoorBell;
+    doc["CodeHandsetLiftup"] = g_config.codeHandsetLiftup;
+    doc["CodeDoorOpener"] = g_config.codeDoorOpener;
+    doc["CodeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
+    doc["CodeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
+    doc["CodePartyMode"] = g_config.codePartyMode;
+    doc["RestartCounter"] = g_config.restartCounter;
+
+    serializeJson(doc, configJson);
+    server.send(200, "application/json", configJson);
+}
+
+void handleSaveConfig()
+{
+    // Handle form submission and update configuration data
+    if (server.method() == HTTP_POST)
+    {
+        StaticJsonDocument<1024> doc;
+        String jsonString = server.arg("plain");
+        deserializeJson(doc, jsonString);
+
+        // Update the currentConfig struct with the new values from the form submission
+        // Copy values from the JsonDocument to the Config
+        g_config.codeApartmentDoorBell = doc["CodeApartmentDoorBell"] | g_config.codeApartmentDoorBell;
+        g_config.codeEntryDoorBell = doc["CodeEntryDoorBell"] | g_config.codeEntryDoorBell;
+        g_config.codeHandsetLiftup = doc["CodeHandsetLiftup"] | g_config.codeHandsetLiftup;
+        g_config.codeDoorOpener = doc["CodeDoorOpener"] | g_config.codeDoorOpener;
+        g_config.codeApartmentPatternDetect = doc["CodeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
+        g_config.codeEntryPatternDetect = doc["CodeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
+        g_config.codePartyMode = doc["CodePartyMode"] | g_config.codePartyMode;
+        saveSettings();
+        publishConfigValues();
+
+        // Send a response to the client
+        String responseMessage = "Configuration updated successfully!";
+        server.send(200, "application/json", "{\"message\":\"" + responseMessage + "\"}");
+    }
+}
+
 void handleSettingsPage()
 {
-    if (server.hasArg("save"))
-    { // Check if body received
-        g_config.codeApartmentDoorBell = (int)strtol(server.arg("CodeApartmentDoorBell").c_str(), 0, 16);
-        g_config.codeEntryDoorBell = (int)strtol(server.arg("CodeEntryDoorBell").c_str(), 0, 16);
-        g_config.codeHandsetLiftup = (int)strtol(server.arg("CodeHandsetLiftup").c_str(), 0, 16);
-        g_config.codeDoorOpener = (int)strtol(server.arg("CodeDoorOpener").c_str(), 0, 16);
-        g_config.codeApartmentPatternDetect = (int)strtol(server.arg("CodeApartmentPatternDetect").c_str(), 0, 16);
-        g_config.codeEntryPatternDetect = (int)strtol(server.arg("CodeEntryPatternDetect").c_str(), 0, 16);
-        g_config.codePartyMode = (int)strtol(server.arg("CodePartyMode").c_str(), 0, 16);
-        printSettings();
-        saveSettings();
-    }
-    char buffer[2000];
-    snprintf(buffer, sizeof(buffer), PAGE_SETTINGS,
-             g_config.codeApartmentDoorBell,
-             g_config.codeEntryDoorBell,
-             g_config.codeHandsetLiftup,
-             g_config.codeDoorOpener,
-             g_config.codeApartmentPatternDetect,
-             g_config.codeEntryPatternDetect,
-             g_config.codePartyMode);
-
-    String message(buffer);
-    server.send(200, "text/html", message);
+    server.send(200, "text/html", PAGE_SETTINGS, sizeof(PAGE_SETTINGS));
 }
 
 bool formatLittleFS()
@@ -623,7 +647,9 @@ void setup()
     client.setCallback(callback);
 
     server.on("/", handleSettingsPage); // Associate the handler function to the path
-    server.begin();                     // Start the server
+    server.on("/setConfig", handleSaveConfig);
+    server.on("/getConfig", handleGetConfig);
+    server.begin(); // Start the server
     log_info("Server listening");
 
     // Port defaults to 8266

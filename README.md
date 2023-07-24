@@ -40,8 +40,9 @@ The P line can be used for power supply. You can also skip the part and power th
 ### Part list
 
 * 1x Microcontroller 1x (Choose one)
-  * Wemos D1 Mini (based on ESP8266) [Buy on Amazon](https://amzn.to/3VmqxsN) / [Buy on aliexpress](https://s.click.aliexpress.com/e/_Dkct0Yl)
-  * Wemos S2 Mini (based on ESP32-S2) [Buy on Amazon](https://amzn.to/3nkMbRq) / [Buy on aliexpress](https://s.click.aliexpress.com/e/_Dnoy8df)
+  * Wemos D1 Mini (based on ESP8266, does have single color led) [Buy on Amazon](https://amzn.to/3VmqxsN) / [Buy on aliexpress](https://s.click.aliexpress.com/e/_Dkct0Yl)
+  * Wemos S2 Mini (based on ESP32-S2, does not have led) [Buy on Amazon](https://amzn.to/3nkMbRq) / [Buy on aliexpress](https://s.click.aliexpress.com/e/_Dnoy8df)
+  * Wemos S3 Mini (based on ESP32-S3, does have RGB led)
 * 1x ULN2003A (to send commands to the bus)
 * 1x Traco TSR1 2405 (dc/dc 24V to 5V as power supply for Wemos)
 * 1x tripple screw terminal (to connect to the bus)
@@ -58,7 +59,6 @@ The P line can be used for power supply. You can also skip the part and power th
 There are still a view things open.
 
 * Refactor config management, it's a lot of code duplication at the moment
-* Save configuration entries from Homeassistant, currently it only shows them
 * Maybe allow wifi/mqtt configuration without the need for project compilation
 
 ## Credits

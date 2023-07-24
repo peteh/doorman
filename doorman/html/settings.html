@@ -1,43 +1,107 @@
+<!DOCTYPE html>
 <html>
-
+<head>
+    <title>ESP8266 Configuration</title>
+</head>
 <body>
-    <h1>Doorman Settings</h1>
-    <form method="post">
-        <input type="hidden" name="save" value="1" />
+    <h1>ESP8266 Configuration Page</h1>
+    <form id="configForm">
         <table>
             <tr>
                 <td>Apartment Door Bell Code</td>
-                <td><input type="text" name="CodeApartmentDoorBell" value="%08x" maxlength="10" /></td>
+                <td><input type="text" name="CodeApartmentDoorBell" maxlength="10" required></td>
             </tr>
             <tr>
                 <td>Entry Door Bell Code</td>
-                <td><input type="text" name="CodeEntryDoorBell" value="%08x" maxlength="10" /></td>
+                <td><input type="text" name="CodeEntryDoorBell" maxlength="10" required></td>
             </tr>
             <tr>
-                <td>Handeset Liftup Code</td>
-                <td><input type="text" name="CodeHandsetLiftup" value="%08x" maxlength="10" /></td>
+                <td>Handset Liftup Code</td>
+                <td><input type="text" name="CodeHandsetLiftup" maxlength="10" required></td>
             </tr>
             <tr>
                 <td>Door Opener Code</td>
-                <td><input type="text" name="CodeDoorOpener" value="%08x" maxlength="10" /></td>
+                <td><input type="text" name="CodeDoorOpener" maxlength="10" required></td>
             </tr>
             <tr>
-                <td>Apartment Door Pattern Detection Code<br />(When this pattern is detected, mqtt message will be
-                    sent)</td>
-                <td><input type="text" name="CodeApartmentPatternDetect" value="%08x" /></td>
+                <td>Apartment Door Pattern Detection Code<br />(When this pattern is detected, mqtt message will be sent)</td>
+                <td><input type="text" name="CodeApartmentPatternDetect" required></td>
             </tr>
             <tr>
                 <td>Entry Door Pattern Detection<br />(When this pattern is detected, door opener will be sent)</td>
-                <td><input type="text" name="CodeEntryPatternDetect" value="%08x" maxlength="10" /></td>
+                <td><input type="text" name="CodeEntryPatternDetect" maxlength="10" required></td>
             </tr>
             <tr>
-                <td>Entry Door Party Mode<br />(When this code is detected, the Door opener code is sent when party mode
-                    is enabled)</td>
-                <td><input type="text" name="CodePartyMode" value="%08x" maxlength="10" /></td>
+                <td>Entry Door Party Mode<br />(When this code is detected, the Door opener code is sent when party mode is enabled)</td>
+                <td><input type="text" name="CodePartyMode" maxlength="10" required></td>
             </tr>
         </table>
-        <input type="submit" value="save" />
+        <br>
+        <input type="submit" value="Save Configuration">
     </form>
-</body>
+    <div id="feedback"></div>
 
+    <script>
+        // Function to fetch and populate the configuration data
+        function populateConfig() {
+            // Fetch the current configuration from the ESP8266
+            fetch('/getConfig', {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Populate the input fields with the retrieved values
+                document.getElementById("configForm").elements["CodeApartmentDoorBell"].value = data.CodeApartmentDoorBell.toString(16).padStart(8, '0');
+                document.getElementById("configForm").elements["CodeEntryDoorBell"].value = data.CodeEntryDoorBell.toString(16).padStart(8, '0');
+                document.getElementById("configForm").elements["CodeHandsetLiftup"].value = data.CodeHandsetLiftup.toString(16).padStart(8, '0');
+                document.getElementById("configForm").elements["CodeDoorOpener"].value = data.CodeDoorOpener.toString(16).padStart(8, '0');
+                document.getElementById("configForm").elements["CodeApartmentPatternDetect"].value = data.CodeApartmentPatternDetect.toString(16).padStart(8, '0');
+                document.getElementById("configForm").elements["CodeEntryPatternDetect"].value = data.CodeEntryPatternDetect.toString(16).padStart(8, '0');
+                document.getElementById("configForm").elements["CodePartyMode"].value = data.CodePartyMode.toString(16).padStart(8, '0');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const feedbackDiv = document.getElementById("feedback");
+                feedbackDiv.textContent = "An error occurred while fetching the configuration.";
+            });
+        }
+
+        // Call the function to populate the configuration on page load
+        window.addEventListener('load', populateConfig);
+
+        // Handle form submission
+        document.getElementById("configForm").onsubmit = function (event) {
+            event.preventDefault(); // Prevent form from submitting normally
+
+            // Get form data
+            const formData = new FormData(event.target);
+
+            // Convert form data to a JSON object
+            const configData = {};
+            formData.forEach((value, key) => {
+                configData[key] = parseInt(value, 16);
+            });
+
+            // Send the configuration data to the server (ESP8266)
+            fetch('/setConfig', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(configData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display feedback to the user
+                const feedbackDiv = document.getElementById("feedback");
+                feedbackDiv.textContent = data.message;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const feedbackDiv = document.getElementById("feedback");
+                feedbackDiv.textContent = "An error occurred while saving the configuration.";
+            });
+        };
+    </script>
+</body>
 </html>

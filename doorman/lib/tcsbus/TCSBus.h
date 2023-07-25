@@ -5,13 +5,6 @@
 #define TCS_ONE_BIT_MS 4   // a 1-bit is 4ms long
 #define TCS_ZERO_BIT_MS 2  // a 0-bit is 2ms long
 
-/**
- * @brief Helper function to print human readable hex message of tcs data to serial
- *
- * @param data the data to print
- */
-void printHEX(uint32_t data);
-
 class TCSBusReader
 {
 public:

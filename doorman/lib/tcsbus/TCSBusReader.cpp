@@ -4,18 +4,6 @@ volatile uint32_t TCSBusReader::s_cmd = 0;
 volatile uint8_t TCSBusReader::s_cmdLength = 0;
 volatile bool TCSBusReader::s_cmdReady = false;
 
-void printHEX(uint32_t data)
-{
-    uint8_t numChars = data > 0xFFFF ? 8 : 4;
-    uint32_t mask = 0x0000000F;
-    mask = mask << 4 * (numChars - 1);
-    for (uint32_t i = numChars; i > 0; --i)
-    {
-        Serial.print(((data & mask) >> (i - 1) * 4), HEX);
-        mask = mask >> 4;
-    }
-}
-
 TCSBusReader::TCSBusReader(uint8_t readPin)
     : m_readPin(readPin),
     m_enabled(false)

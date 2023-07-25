@@ -4,6 +4,7 @@
         "array": "cpp",
         "string": "cpp",
         "string_view": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "functional": "cpp"
     }
 }

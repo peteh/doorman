@@ -20,8 +20,8 @@
                 <td><input type="text" name="wifiSsid" maxlength="150" required></td>
             </tr>
             <tr>
-                <td>Wifi Password</td>
-                <td><input type="text" name="wifiPassword" maxlength="150" required></td>
+                <td>Wifi Password (not shown)</td>
+                <td><input type="text" name="wifiPassword" maxlength="150"></td>
             </tr>
             <tr>
                 <td>MQTT Server</td>
@@ -57,12 +57,12 @@
                 .then(data => {
                     // Populate the input fields with the retrieved values
                     document.getElementById("configForm").elements["wifiSsid"].value = data.wifiSsid;
-                    document.getElementById("configForm").elements["wifiPassword"].value = data.wifiPassword;
+                    //document.getElementById("configForm").elements["wifiPassword"].value = data.wifiPassword;
                     document.getElementById("configForm").elements["mqttServer"].value = data.mqttServer;
                     document.getElementById("configForm").elements["mqttPort"].value = data.mqttPort;
                     document.getElementById("configForm").elements["mqttUser"].value = data.mqttUser;
                     document.getElementById("configForm").elements["mqttPassword"].value = data.mqttPassword;
-                    document.getElementById("version").textContent = data.Version;
+                    document.getElementById("version").textContent = data.version;
                     
                 })
                 .catch(error => {

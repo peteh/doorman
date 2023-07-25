@@ -330,6 +330,13 @@ void printSettings()
     log_info("Code Apartment Door Pattern Detection: %08x", g_config.codeApartmentPatternDetect);
     log_info("Code Entry Door Pattern Detection: %08x", g_config.codeEntryPatternDetect);
     log_info("Code Party Mode: %08x", g_config.codePartyMode);
+
+    log_info("Wifi SSID: %s", g_config.wifiSsid);
+    log_info("Wifi Password: %s", g_config.wifiPassword);
+    log_info("MQTT Server: %s", g_config.mqttServer);
+    log_info("MQTT Port: %d", g_config.mqttPort);
+    log_info("MQTT User: %s", g_config.mqttUser);
+    log_info("MQTT Password: %s", g_config.mqttPassword);
 }
 
 void loadSettings()
@@ -455,7 +462,7 @@ void handleSettingsConfig()
 
     // Set the values in the document
     doc["wifiSsid"] = g_config.wifiSsid;
-    doc["wifiPassword"] = g_config.wifiPassword;
+    //doc["wifiPassword"] = g_config.wifiPassword;
     doc["mqttServer"] = g_config.mqttServer;
     doc["mqttPort"] = g_config.mqttPort;
     doc["mqttUser"] = g_config.mqttUser;
@@ -480,7 +487,8 @@ void handleSaveSettingsConfig()
         {
             strncpy(g_config.wifiSsid, doc["wifiSsid"].as<const char *>(), sizeof(g_config.wifiSsid));
         }
-        if (doc.containsKey("wifiPassword"))
+        // only save password if not empty
+        if (doc.containsKey("wifiPassword") and strlen(doc["wifiPassword"]) > 0)
         {
             strncpy(g_config.wifiPassword, doc["wifiPassword"].as<const char *>(), sizeof(g_config.wifiPassword));
         }
@@ -503,6 +511,7 @@ void handleSaveSettingsConfig()
         // Send a response to the client
         String responseMessage = "Configuration updated successfully!";
         server.send(200, "application/json", "{\"message\":\"" + responseMessage + "\"}");
+        printSettings();
     }
 }
 

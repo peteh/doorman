@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Doorman Configuration</title>
+    %style%
+</head>
+
+<body>
+    <h1>Doorman Configuration Page</h1>
+    %menu%
+    <div id="version"></div>
+
+    <script>
+        // Function to fetch and populate the configuration data
+        function populateConfig() {
+            // Fetch the current configuration from the ESP8266
+            fetch('/getCodes', {
+                method: 'GET',
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("version").textContent = data.version;
+                    
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const feedbackDiv = document.getElementById("feedback");
+                    feedbackDiv.textContent = "An error occurred while fetching the configuration.";
+                });
+        }
+
+        // Call the function to populate the configuration on page load
+        window.addEventListener('load', populateConfig);
+    </script>
+</body>
+
+</html>

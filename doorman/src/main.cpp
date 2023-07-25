@@ -82,9 +82,15 @@ struct Config
     uint32_t codeEntryPatternDetect;
     uint32_t codePartyMode;
     uint32_t restartCounter;
+    char wifiSsid[200];
+    char wifiPassword[200];
+    char mqttServer[200];
+    uint16_t mqttPort;
+    char mqttUser[200];
+    char mqttPassword[200];
 };
 
-Config g_config = {0, 0, 0, 0, 0, 0, 0, 0};
+Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
 
 // apartement door:
 //   doorman-[name]/apartment/bell/state -> on/off
@@ -354,6 +360,28 @@ void loadSettings()
     g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
     g_config.restartCounter = doc["restartCounter"] | g_config.restartCounter;
 
+    if (doc.containsKey("wifiSsid"))
+    {
+        strncpy(g_config.wifiSsid, doc["wifiSsid"].as<const char *>(), sizeof(g_config.wifiSsid));
+    }
+    if (doc.containsKey("wifiPassword"))
+    {
+        strncpy(g_config.wifiPassword, doc["wifiPassword"].as<const char *>(), sizeof(g_config.wifiPassword));
+    }
+    if (doc.containsKey("mqttServer"))
+    {
+        strncpy(g_config.mqttServer, doc["mqttServer"].as<const char *>(), sizeof(g_config.mqttServer));
+    }
+    g_config.mqttPort = doc["mqttPort"] | g_config.mqttPort;
+    if (doc.containsKey("mqttUser"))
+    {
+        strncpy(g_config.mqttUser, doc["mqttUser"].as<const char *>(), sizeof(g_config.mqttUser));
+    }
+    if (doc.containsKey("mqttPassword"))
+    {
+        strncpy(g_config.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(g_config.mqttPassword));
+    }
+
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
 }
@@ -381,6 +409,12 @@ void saveSettings()
     doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
     doc["codePartyMode"] = g_config.codePartyMode;
     doc["restartCounter"] = g_config.restartCounter;
+    doc["wifiSsid"] = g_config.wifiSsid;
+    doc["wifiPassword"] = g_config.wifiPassword;
+    doc["mqttServer"] = g_config.mqttServer;
+    doc["mqttPort"] = g_config.mqttPort;
+    doc["mqttUser"] = g_config.mqttUser;
+    doc["mqttPassword"] = g_config.mqttPassword;
 
     // Serialize JSON to file
     if (serializeJson(doc, file) == 0)
@@ -392,28 +426,87 @@ void saveSettings()
     file.close();
 }
 
-void handleGetConfig()
+void handleCodeConfig()
 {
     // Respond with the current configuration in JSON format
     String configJson;
     StaticJsonDocument<1024> doc;
 
     // Set the values in the document
-    doc["CodeApartmentDoorBell"] = g_config.codeApartmentDoorBell;
-    doc["CodeEntryDoorBell"] = g_config.codeEntryDoorBell;
-    doc["CodeHandsetLiftup"] = g_config.codeHandsetLiftup;
-    doc["CodeDoorOpener"] = g_config.codeDoorOpener;
-    doc["CodeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
-    doc["CodeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
-    doc["CodePartyMode"] = g_config.codePartyMode;
-    doc["RestartCounter"] = g_config.restartCounter;
-    doc["Version"] = SYSTEM_NAME " (" __DATE__ ")";
+    doc["codeApartmentDoorBell"] = g_config.codeApartmentDoorBell;
+    doc["codeEntryDoorBell"] = g_config.codeEntryDoorBell;
+    doc["codeHandsetLiftup"] = g_config.codeHandsetLiftup;
+    doc["codeDoorOpener"] = g_config.codeDoorOpener;
+    doc["codeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
+    doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
+    doc["codePartyMode"] = g_config.codePartyMode;
+    doc["testartCounter"] = g_config.restartCounter;
+    doc["version"] = SYSTEM_NAME " (" __DATE__ ")";
 
     serializeJson(doc, configJson);
     server.send(200, "application/json", configJson);
 }
 
-void handleSaveConfig()
+void handleSettingsConfig()
+{
+    // Respond with the current configuration in JSON format
+    String configJson;
+    StaticJsonDocument<1024> doc;
+
+    // Set the values in the document
+    doc["wifiSsid"] = g_config.wifiSsid;
+    doc["wifiPassword"] = g_config.wifiPassword;
+    doc["mqttServer"] = g_config.mqttServer;
+    doc["mqttPort"] = g_config.mqttPort;
+    doc["mqttUser"] = g_config.mqttUser;
+    doc["mqttPassword"] = g_config.mqttPassword;
+    doc["version"] = SYSTEM_NAME " (" __DATE__ ")";
+
+    serializeJson(doc, configJson);
+    server.send(200, "application/json", configJson);
+}
+
+void handleSaveSettingsConfig()
+{
+    // Handle form submission and update configuration data
+    if (server.method() == HTTP_POST)
+    {
+        StaticJsonDocument<1024> doc;
+        String jsonString = server.arg("plain");
+        deserializeJson(doc, jsonString);
+
+        // Update the currentConfig struct with the new values from the form submission
+        if (doc.containsKey("wifiSsid"))
+        {
+            strncpy(g_config.wifiSsid, doc["wifiSsid"].as<const char *>(), sizeof(g_config.wifiSsid));
+        }
+        if (doc.containsKey("wifiPassword"))
+        {
+            strncpy(g_config.wifiPassword, doc["wifiPassword"].as<const char *>(), sizeof(g_config.wifiPassword));
+        }
+        if (doc.containsKey("mqttServer"))
+        {
+            strncpy(g_config.mqttServer, doc["mqttServer"].as<const char *>(), sizeof(g_config.mqttServer));
+        }
+        g_config.mqttPort = doc["mqttPort"] | g_config.mqttPort;
+        if (doc.containsKey("mqttUser"))
+        {
+            strncpy(g_config.mqttUser, doc["mqttUser"].as<const char *>(), sizeof(g_config.mqttUser));
+        }
+        if (doc.containsKey("mqttPassword"))
+        {
+            strncpy(g_config.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(g_config.mqttPassword));
+        }
+        saveSettings();
+        // publishConfigValues();
+
+        // Send a response to the client
+        String responseMessage = "Configuration updated successfully!";
+        server.send(200, "application/json", "{\"message\":\"" + responseMessage + "\"}");
+    }
+}
+
+void handleSaveCodeConfig()
 {
     // Handle form submission and update configuration data
     if (server.method() == HTTP_POST)
@@ -424,13 +517,13 @@ void handleSaveConfig()
 
         // Update the currentConfig struct with the new values from the form submission
         // Copy values from the JsonDocument to the Config
-        g_config.codeApartmentDoorBell = doc["CodeApartmentDoorBell"] | g_config.codeApartmentDoorBell;
-        g_config.codeEntryDoorBell = doc["CodeEntryDoorBell"] | g_config.codeEntryDoorBell;
-        g_config.codeHandsetLiftup = doc["CodeHandsetLiftup"] | g_config.codeHandsetLiftup;
-        g_config.codeDoorOpener = doc["CodeDoorOpener"] | g_config.codeDoorOpener;
-        g_config.codeApartmentPatternDetect = doc["CodeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
-        g_config.codeEntryPatternDetect = doc["CodeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
-        g_config.codePartyMode = doc["CodePartyMode"] | g_config.codePartyMode;
+        g_config.codeApartmentDoorBell = doc["codeApartmentDoorBell"] | g_config.codeApartmentDoorBell;
+        g_config.codeEntryDoorBell = doc["codeEntryDoorBell"] | g_config.codeEntryDoorBell;
+        g_config.codeHandsetLiftup = doc["codeHandsetLiftup"] | g_config.codeHandsetLiftup;
+        g_config.codeDoorOpener = doc["codeDoorOpener"] | g_config.codeDoorOpener;
+        g_config.codeApartmentPatternDetect = doc["codeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
+        g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
+        g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
         saveSettings();
         publishConfigValues();
 
@@ -440,9 +533,19 @@ void handleSaveConfig()
     }
 }
 
+void handleMainPage()
+{
+    server.send_P(200, "text/html", PAGE_MAIN);
+}
+
+void handleCodesPage()
+{
+    server.send_P(200, "text/html", PAGE_CODES);
+}
+
 void handleSettingsPage()
 {
-    server.send_P(200, "text/html", PAGE_SETTINGS); //, sizeof(PAGE_SETTINGS));
+    server.send_P(200, "text/html", PAGE_SETTINGS);
 }
 
 bool formatLittleFS()
@@ -655,10 +758,13 @@ void setup()
     client.setBufferSize(1024);
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
-
-    server.on("/", handleSettingsPage); // Associate the handler function to the path
-    server.on("/setConfig", handleSaveConfig);
-    server.on("/getConfig", handleGetConfig);
+    server.on("/", handleMainPage);
+    server.on("/codes", handleCodesPage);
+    server.on("/settings", handleSettingsPage);
+    server.on("/setCodes", handleSaveCodeConfig);
+    server.on("/getCodes", handleCodeConfig);
+    server.on("/getSettings", handleSettingsConfig);
+    server.on("/setSettings", handleSaveSettingsConfig);
     server.begin(); // Start the server
     log_info("Server listening");
 

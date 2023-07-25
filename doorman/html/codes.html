@@ -7,37 +7,41 @@
 </head>
 
 <body>
-    <h1>Doorman Configuration Page: Wifi</h1>
+    <h1>Doorman Configuration Page: Codes</h1>
     %menu%
     <form id="configForm">
         <table>
             <tr>
                 <th>Setting</th>
-                <th>Value</th>
+                <th>Value (Hexadecimal)</th>
             </tr>
             <tr>
-                <td>Wifi SSID</td>
-                <td><input type="text" name="wifiSsid" maxlength="150" required></td>
+                <td>Apartment Door Bell Code</td>
+                <td><input type="text" name="codeApartmentDoorBell" maxlength="8" required></td>
             </tr>
             <tr>
-                <td>Wifi Password</td>
-                <td><input type="text" name="wifiPassword" maxlength="150" required></td>
+                <td>Entry Door Bell Code</td>
+                <td><input type="text" name="codeEntryDoorBell" maxlength="8" required></td>
             </tr>
             <tr>
-                <td>MQTT Server</td>
-                <td><input type="text" name="mqttServer" maxlength="150" required></td>
+                <td>Handset Liftup Code</td>
+                <td><input type="text" name="codeHandsetLiftup" maxlength="8" required></td>
             </tr>
             <tr>
-                <td>MQTT Port</td>
-                <td><input type="text" name="mqttPort" maxlength="8" required></td>
+                <td>Door Opener Code</td>
+                <td><input type="text" name="codeDoorOpener" maxlength="8" required></td>
             </tr>
             <tr>
-                <td>MQTT User</td>
-                <td><input type="text" name="mqttUser"></td>
+                <td>Apartment Door Pattern Detection Code<br />(When this pattern is detected, mqtt message will be sent)</td>
+                <td><input type="text" name="codeApartmentPatternDetect" required></td>
             </tr>
             <tr>
-                <td>MQTT Password</td>
-                <td><input type="text" name="mqttPassword" maxlength="8"></td>
+                <td>Entry Door Pattern Detection<br />(When this pattern is detected, door opener will be sent)</td>
+                <td><input type="text" name="codeEntryPatternDetect" maxlength="8" required></td>
+            </tr>
+            <tr>
+                <td>Entry Door Party Mode<br />(When this code is detected, the Door opener code is sent when party mode is enabled)</td>
+                <td><input type="text" name="codePartyMode" maxlength="8" required></td>
             </tr>
         </table>
         <div id="feedback"></div>
@@ -50,19 +54,20 @@
         // Function to fetch and populate the configuration data
         function populateConfig() {
             // Fetch the current configuration from the ESP8266
-            fetch('/getSettings', {
+            fetch('/getCodes', {
                 method: 'GET',
             })
                 .then(response => response.json())
                 .then(data => {
                     // Populate the input fields with the retrieved values
-                    document.getElementById("configForm").elements["wifiSsid"].value = data.wifiSsid;
-                    document.getElementById("configForm").elements["wifiPassword"].value = data.wifiPassword;
-                    document.getElementById("configForm").elements["mqttServer"].value = data.mqttServer;
-                    document.getElementById("configForm").elements["mqttPort"].value = data.mqttPort;
-                    document.getElementById("configForm").elements["mqttUser"].value = data.mqttUser;
-                    document.getElementById("configForm").elements["mqttPassword"].value = data.mqttPassword;
-                    document.getElementById("version").textContent = data.Version;
+                    document.getElementById("configForm").elements["codeApartmentDoorBell"].value = data.codeApartmentDoorBell.toString(16).padStart(8, '0');
+                    document.getElementById("configForm").elements["codeEntryDoorBell"].value = data.codeEntryDoorBell.toString(16).padStart(8, '0');
+                    document.getElementById("configForm").elements["codeHandsetLiftup"].value = data.codeHandsetLiftup.toString(16).padStart(8, '0');
+                    document.getElementById("configForm").elements["codeDoorOpener"].value = data.codeDoorOpener.toString(16).padStart(8, '0');
+                    document.getElementById("configForm").elements["codeApartmentPatternDetect"].value = data.codeApartmentPatternDetect.toString(16).padStart(8, '0');
+                    document.getElementById("configForm").elements["codeEntryPatternDetect"].value = data.codeEntryPatternDetect.toString(16).padStart(8, '0');
+                    document.getElementById("configForm").elements["codePartyMode"].value = data.codePartyMode.toString(16).padStart(8, '0');
+                    document.getElementById("version").textContent = data.version;
                     
                 })
                 .catch(error => {
@@ -85,12 +90,12 @@
             // Convert form data to a JSON object
             const configData = {};
             formData.forEach((value, key) => {
-                configData[key] = value;
+                configData[key] = parseInt(value, 16);
             });
 
 
             // Send the configuration data to the server (ESP8266)
-            fetch('/setSettings', {
+            fetch('/setCodes', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -110,7 +115,6 @@
                 });
         };
         // Validate input fields to accept only hexadecimal numbers
-        /**
         const hexInputFields = document.querySelectorAll('input[type="text"]');
         hexInputFields.forEach(field => {
             field.addEventListener('input', () => {
@@ -123,7 +127,6 @@
                 }
             });
         });
-        */
     </script>
 </body>
 

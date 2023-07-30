@@ -22,7 +22,7 @@ public:
         m_lastOn = millis();
         m_ledState = true;
         m_pixel.setBrightness(150);
-        m_pixel.setPixelColor(0, m_pixel.Color(0, 100, 0)); // Moderately bright green color.
+        m_pixel.setPixelColor(0, m_pixel.Color(100, 100, 0)); // Moderately bright yellow/orange color.
         m_pixel.show();
     }
 
@@ -30,7 +30,7 @@ public:
     {
         if(enabled)
         {
-            m_backgroundColor = m_pixel.Color(255, 0, 0);
+            m_backgroundColor = m_pixel.Color(0, 100, 0);
             m_backgroundBrightness = 20;
         }
         else

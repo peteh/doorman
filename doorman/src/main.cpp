@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-// needed for library
+
 #include <DNSServer.h>
 
 #ifdef ESP8266
@@ -22,6 +22,11 @@
 
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
+
+// watch dog
+#include <esp_task_wdt.h>
+
+
 #include <TCSBus.h>
 #include <TriggerPatternRecognition.h>
 
@@ -44,6 +49,7 @@
 #endif
 
 #define CONFIG_FILENAME "/config.txt"
+const uint WATCHDOG_TIMEOUT_S = 30;
 
 WiFiClient net;
 PubSubClient client(net);
@@ -676,6 +682,10 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void setup()
 {
+    // initialize watchdog
+    esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); //enable panic so ESP32 restarts
+    esp_task_wdt_add(NULL); //add current thread to WDT watch
+
     // further mqtt device config
     mqttBus.setPattern("[a-fA-F0-9]*");
     mqttBus.setMaxLetters(8);
@@ -826,6 +836,8 @@ void setup()
 
 void loop()
 {
+    // reset watchdog, important to be called once each loop.
+    esp_task_wdt_reset();
     g_led->update();
     if (WiFi.status() != WL_CONNECTED)
     {

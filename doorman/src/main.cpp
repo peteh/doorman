@@ -13,6 +13,8 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <mdns.h>
+// watch dog
+#include <esp_task_wdt.h>
 #endif
 
 #include <WiFiUdp.h>
@@ -22,10 +24,6 @@
 
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
-
-// watch dog
-#include <esp_task_wdt.h>
-
 
 #include <TCSBus.h>
 #include <TriggerPatternRecognition.h>
@@ -682,9 +680,11 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void setup()
 {
+    #ifdef ESP32
     // initialize watchdog
     esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); //enable panic so ESP32 restarts
     esp_task_wdt_add(NULL); //add current thread to WDT watch
+    #endif
 
     // further mqtt device config
     mqttBus.setPattern("[a-fA-F0-9]*");
@@ -836,8 +836,11 @@ void setup()
 
 void loop()
 {
+    #ifdef ESP32
     // reset watchdog, important to be called once each loop.
     esp_task_wdt_reset();
+    #endif
+    
     g_led->update();
     if (WiFi.status() != WL_CONNECTED)
     {

@@ -37,14 +37,18 @@
 #ifdef ESP8266
 #define PIN_BUS_READ D5
 #define PIN_BUS_WRITE D6
+#define PIN_ETR D7
 #define SYSTEM_NAME "ESP8266 Doorman"
 #endif
 
 #ifdef ESP32
 #define PIN_BUS_READ 12
 #define PIN_BUS_WRITE 13
+#define PIN_ETR 11
 #define SYSTEM_NAME "ESP32 Doorman"
 #endif
+
+#define FLOOR_SWITCH_DEBOUNCE_MS 150
 
 #define CONFIG_FILENAME "/config.txt"
 const uint WATCHDOG_TIMEOUT_S = 30;
@@ -119,6 +123,8 @@ MqttSwitch mqttEntryBell(&mqttDevice, "entrybell", "Entry Bell");
 MqttBinarySensor mqttEntryBellPattern(&mqttDevice, "entrybellpattern", "Entry Bell Pattern");
 MqttSwitch mqttEntryOpener(&mqttDevice, "entryopener", "Door Opener");
 
+MqttBinarySensor mqttFloorBell(&mqttDevice, "floorbell", "Floor Bell");
+
 MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
 
 MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
@@ -135,6 +141,9 @@ MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party M
 MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Doorman Restart Counter");
 
 bool g_partyMode = false;
+
+bool g_lastFloorSwitchState = false;
+unsigned long g_tsLastFloorSwitch = 0;
 
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
@@ -241,6 +250,8 @@ void publishConfig()
     publishConfig(&mqttEntryBellPattern);
     publishConfig(&mqttEntryOpener);
 
+    publishConfig(&mqttFloorBell);
+
     publishConfig(&mqttPartyMode);
 
     publishConfig(&mqttBus);
@@ -262,6 +273,7 @@ void publishConfig()
     publishMqttState(&mqttEntryBell, mqttEntryBell.getOffState());
     publishMqttState(&mqttEntryBellPattern, mqttEntryBellPattern.getOffState());
     publishMqttState(&mqttEntryOpener, mqttEntryOpener.getOffState());
+    publishMqttState(&mqttFloorBell, mqttFloorBell.getOffState());
     publishMqttState(&mqttBus, "");
     publishPartyMode();
 
@@ -693,6 +705,7 @@ void setup()
 
     mqttApartmentBell.setIcon("mdi:bell");
     mqttEntryBell.setIcon("mdi:bell");
+    mqttFloorBell.setIcon("mdi:bell");
 
     mqttPartyMode.setIcon("mdi:door-closed-lock");
     mqttEntryOpener.setIcon("mdi:door-open");
@@ -727,6 +740,8 @@ void setup()
 
     mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
     mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL_INCREASING);
+
+    pinMode(PIN_ETR, INPUT);
 
     g_led->begin();
     // turn on led until boot sequence finished
@@ -853,6 +868,19 @@ void loop()
     client.loop();
     server.handleClient(); // Handling of incoming web requests
     ArduinoOTA.handle();
+
+    // high = pressed, low = not pressed
+    bool newFloorSwitchState = digitalRead(PIN_ETR);
+
+    if(newFloorSwitchState != g_lastFloorSwitchState && millis() - g_tsLastFloorSwitch > FLOOR_SWITCH_DEBOUNCE_MS)
+    {
+        // debounced new state, should be published
+        g_lastFloorSwitchState = newFloorSwitchState;
+        g_tsLastFloorSwitch = millis();
+        g_led->blinkAsync(); // TODO: maybe use different color for ETR (floor switch)
+        publishMqttState(&mqttFloorBell, newFloorSwitchState ? mqttFloorBell.getOnState() : mqttFloorBell.getOffState());
+    }
+
     if (g_shouldSend)
     {
         uint32_t cmd = g_commandToSend;

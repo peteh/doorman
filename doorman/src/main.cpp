@@ -1,6 +1,4 @@
 #include <Arduino.h>
-
-
 #include <DNSServer.h>
 
 #ifdef ESP8266
@@ -30,6 +28,8 @@
 
 #include <MqttDevice.h>
 
+#include "datastruct.h"
+#include "configstorage.h"
 #include "utils.h"
 #include "config.h"
 #include "html.h"
@@ -46,7 +46,6 @@
 #define SYSTEM_NAME "ESP32 Doorman"
 #endif
 
-#define CONFIG_FILENAME "/config.txt"
 const uint WATCHDOG_TIMEOUT_S = 30;
 
 WiFiClient net;
@@ -76,25 +75,6 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
-struct Config
-{
-    uint32_t codeApartmentDoorBell;
-    uint32_t codeEntryDoorBell;
-    uint32_t codeHandsetLiftup;
-    uint32_t codeDoorOpener;
-    uint32_t codeApartmentPatternDetect;
-    uint32_t codeEntryPatternDetect;
-    uint32_t codePartyMode;
-    uint32_t restartCounter;
-    uint32_t wifiDisconnectCounter;
-    uint32_t mqttDisconnectCounter;
-    char wifiSsid[200];
-    char wifiPassword[200];
-    char mqttServer[200];
-    uint16_t mqttPort;
-    char mqttUser[200];
-    char mqttPassword[200];
-};
 
 Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
 
@@ -365,103 +345,6 @@ void printSettings()
     log_info("MQTT Password: %s", g_config.mqttPassword);
 }
 
-void loadSettings()
-{
-    // Open file for reading
-    // TODO: check if file exists
-    File file = LittleFS.open(CONFIG_FILENAME, "r");
-
-    // Allocate a temporary JsonDocument
-    // Don't forget to change the capacity to match your requirements.
-    // Use arduinojson.org/v6/assistant to compute the capacity.
-    StaticJsonDocument<1024> doc;
-
-    // Deserialize the JSON document
-    DeserializationError error = deserializeJson(doc, file);
-    if (error)
-    {
-        log_error(F("Failed to read file, using default configuration"));
-    }
-
-    // Copy values from the JsonDocument to the Config
-    g_config.codeApartmentDoorBell = doc["codeApartmentDoorBell"] | g_config.codeApartmentDoorBell;
-    g_config.codeEntryDoorBell = doc["codeEntryDoorBell"] | g_config.codeEntryDoorBell;
-    g_config.codeHandsetLiftup = doc["codeHandsetLiftup"] | g_config.codeHandsetLiftup;
-    g_config.codeDoorOpener = doc["codeDoorOpener"] | g_config.codeDoorOpener;
-    g_config.codeApartmentPatternDetect = doc["codeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
-    g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
-    g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
-    g_config.restartCounter = doc["restartCounter"] | g_config.restartCounter;
-    g_config.wifiDisconnectCounter = doc["wifiDisconnectCounter"] | g_config.wifiDisconnectCounter;
-    g_config.mqttDisconnectCounter = doc["mqttDisconnectCounter"] | g_config.mqttDisconnectCounter;
-
-    if (doc.containsKey("wifiSsid"))
-    {
-        strncpy(g_config.wifiSsid, doc["wifiSsid"].as<const char *>(), sizeof(g_config.wifiSsid));
-    }
-    if (doc.containsKey("wifiPassword"))
-    {
-        strncpy(g_config.wifiPassword, doc["wifiPassword"].as<const char *>(), sizeof(g_config.wifiPassword));
-    }
-    if (doc.containsKey("mqttServer"))
-    {
-        strncpy(g_config.mqttServer, doc["mqttServer"].as<const char *>(), sizeof(g_config.mqttServer));
-    }
-    g_config.mqttPort = doc["mqttPort"] | g_config.mqttPort;
-    if (doc.containsKey("mqttUser"))
-    {
-        strncpy(g_config.mqttUser, doc["mqttUser"].as<const char *>(), sizeof(g_config.mqttUser));
-    }
-    if (doc.containsKey("mqttPassword"))
-    {
-        strncpy(g_config.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(g_config.mqttPassword));
-    }
-
-    // Close the file (Curiously, File's destructor doesn't close the file)
-    file.close();
-}
-
-void saveSettings()
-{
-    // Open file for writing
-    File file = LittleFS.open(CONFIG_FILENAME, "w");
-    if (!file)
-    {
-        log_error("Failed to create config file");
-        return;
-    }
-    // Allocate a temporary JsonDocument
-    // Don't forget to change the capacity to match your requirements.
-    // Use arduinojson.org/assistant to compute the capacity.
-    StaticJsonDocument<1024> doc;
-
-    // Set the values in the document
-    doc["codeApartmentDoorBell"] = g_config.codeApartmentDoorBell;
-    doc["codeEntryDoorBell"] = g_config.codeEntryDoorBell;
-    doc["codeHandsetLiftup"] = g_config.codeHandsetLiftup;
-    doc["codeDoorOpener"] = g_config.codeDoorOpener;
-    doc["codeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
-    doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
-    doc["codePartyMode"] = g_config.codePartyMode;
-    doc["restartCounter"] = g_config.restartCounter;
-    doc["wifiDisconnectCounter"] = g_config.wifiDisconnectCounter;
-    doc["mqttDisconnectCounter"] = g_config.mqttDisconnectCounter;
-    doc["wifiSsid"] = g_config.wifiSsid;
-    doc["wifiPassword"] = g_config.wifiPassword;
-    doc["mqttServer"] = g_config.mqttServer;
-    doc["mqttPort"] = g_config.mqttPort;
-    doc["mqttUser"] = g_config.mqttUser;
-    doc["mqttPassword"] = g_config.mqttPassword;
-
-    // Serialize JSON to file
-    if (serializeJson(doc, file) == 0)
-    {
-        log_error("Failed to write config to file");
-    }
-
-    // Close the file
-    file.close();
-}
 
 void handleCodeConfig()
 {
@@ -477,7 +360,7 @@ void handleCodeConfig()
     doc["codeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
     doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
     doc["codePartyMode"] = g_config.codePartyMode;
-    doc["testartCounter"] = g_config.restartCounter;
+    doc["restartCounter"] = g_config.restartCounter;
     doc["version"] = SYSTEM_NAME " (" __DATE__ ")";
 
     serializeJson(doc, configJson);
@@ -535,7 +418,7 @@ void handleSaveSettingsConfig()
         {
             strncpy(g_config.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(g_config.mqttPassword));
         }
-        saveSettings();
+        saveSettings(g_config);
         // publishMqttConfigValues();
 
         // Send a response to the client
@@ -563,7 +446,7 @@ void handleSaveCodeConfig()
         g_config.codeApartmentPatternDetect = doc["codeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
         g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
         g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigValues();
 
         // Send a response to the client
@@ -654,42 +537,42 @@ void callback(char *topic, byte *payload, unsigned int length)
     {
         g_config.codeApartmentDoorBell = parseValue((char *)payload, length);
         publishMqttConfigState(&mqttConfigCodeApartmentDoorBell, g_config.codeApartmentDoorBell);
-        saveSettings();
+        saveSettings(g_config);
     }
     else if (strcmp(topic, mqttConfigCodeEntryDoorBell.getCommandTopic()) == 0)
     {
         g_config.codeEntryDoorBell = parseValue((char *)payload, length);
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigState(&mqttConfigCodeEntryDoorBell, g_config.codeEntryDoorBell);
     }
     else if (strcmp(topic, mqttConfigCodeHandsetLiftup.getCommandTopic()) == 0)
     {
         g_config.codeHandsetLiftup = parseValue((char *)payload, length);
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigState(&mqttConfigCodeHandsetLiftup, g_config.codeHandsetLiftup);
     }
     else if (strcmp(topic, mqttConfigCodeDoorOpener.getCommandTopic()) == 0)
     {
         g_config.codeDoorOpener = parseValue((char *)payload, length);
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigState(&mqttConfigCodeDoorOpener, g_config.codeDoorOpener);
     }
     else if (strcmp(topic, mqttConfigCodeApartmentPatternDetect.getCommandTopic()) == 0)
     {
         g_config.codeApartmentPatternDetect = parseValue((char *)payload, length);
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
     }
     else if (strcmp(topic, mqttConfigCodeEntryPatternDetect.getCommandTopic()) == 0)
     {
         g_config.codeEntryPatternDetect = parseValue((char *)payload, length);
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
     }
     else if (strcmp(topic, mqttConfigCodePartyMode.getCommandTopic()) == 0)
     {
         g_config.codePartyMode = parseValue((char *)payload, length);
-        saveSettings();
+        saveSettings(g_config);
         publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
     }
 
@@ -699,7 +582,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         g_config.restartCounter = 0;
         g_config.mqttDisconnectCounter = 0;
         g_config.wifiDisconnectCounter = 0;
-        saveSettings();
+        saveSettings(g_config);
         publishMqttDiagnostics();
     }
 
@@ -795,9 +678,9 @@ void setup()
             }
         }
     }
-    loadSettings();
+    loadSettings(g_config);
     g_config.restartCounter++;
-    saveSettings();
+    saveSettings(g_config);
 
     tcsWriter.begin();
     tcsReader.begin();
@@ -902,7 +785,7 @@ void loop()
         {
             // we switched to disconnected
             g_config.wifiDisconnectCounter++;
-            saveSettings();
+            saveSettings(g_config);
         }
         g_wifiConnected = false;
         g_mqttConnected = false;
@@ -921,7 +804,7 @@ void loop()
         {
             // we switched to disconnected
             g_config.mqttDisconnectCounter++;
-            saveSettings();
+            saveSettings(g_config);
         }
         g_mqttConnected = false;
         delay(1000);

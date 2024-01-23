@@ -86,6 +86,8 @@ struct Config
     uint32_t codeEntryPatternDetect;
     uint32_t codePartyMode;
     uint32_t restartCounter;
+    uint32_t wifiDisconnectCounter;
+    uint32_t mqttDisconnectCounter;
     char wifiSsid[200];
     char wifiPassword[200];
     char mqttServer[200];
@@ -94,7 +96,7 @@ struct Config
     char mqttPassword[200];
 };
 
-Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
+Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
 
 // apartement door:
 //   doorman-[name]/apartment/bell/state -> on/off
@@ -133,6 +135,8 @@ MqttText mqttConfigCodeEntryPatternDetect(&mqttDevice, "config_code_entry_patter
 MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party Mode Code");
 
 MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Doorman Restart Counter");
+MqttSensor mqttDiagnosticsWifiDisconnectCounter(&mqttDevice, "diagnostics_wifidisconnect_counter", "Doorman WiFi Disconnect Counter");
+MqttSensor mqttDiagnosticsMqttDisconnectCounter(&mqttDevice, "diagnostics_mqttdisconnect_counter", "Doorman MQTT Disconnect Counter");
 
 bool g_partyMode = false;
 
@@ -149,6 +153,9 @@ unsigned long g_tsLastLedStateOn = 0;
 
 uint8_t g_handsetLiftup = 0;
 unsigned long g_tsLastHandsetLiftup = 0;
+
+bool g_wifiConnected = false;
+bool g_mqttConnected = false;
 
 // TODO: wifi auto config
 // TODO: publish persistant
@@ -368,6 +375,8 @@ void loadSettings()
     g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
     g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
     g_config.restartCounter = doc["restartCounter"] | g_config.restartCounter;
+    g_config.wifiDisconnectCounter = doc["wifiDisconnectCounter"] | g_config.wifiDisconnectCounter;
+    g_config.mqttDisconnectCounter = doc["mqttDisconnectCounter"] | g_config.mqttDisconnectCounter;
 
     if (doc.containsKey("wifiSsid"))
     {
@@ -418,6 +427,8 @@ void saveSettings()
     doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
     doc["codePartyMode"] = g_config.codePartyMode;
     doc["restartCounter"] = g_config.restartCounter;
+    doc["wifiDisconnectCounter"] = g_config.wifiDisconnectCounter;
+    doc["mqttDisconnectCounter"] = g_config.mqttDisconnectCounter;
     doc["wifiSsid"] = g_config.wifiSsid;
     doc["wifiPassword"] = g_config.wifiPassword;
     doc["mqttServer"] = g_config.mqttServer;
@@ -845,19 +856,40 @@ void loop()
     #endif
     
     g_led->update();
-    if (!connectToWifi())
+    bool wifiConnected = connectToWifi();
+    if (!wifiConnected)
     {
-        // TODO: add error handling for not being able to connect to WiFi after certain time
+        if (g_wifiConnected)
+        {
+            // we switched to disconnected
+            g_config.wifiDisconnectCounter++;
+            saveSettings();
+        }
+        g_wifiConnected = false;
         delay(1000);
+        return;
     }
-    if (!connectToMqtt())
-    {
-        // TODO: add error handling for not being able to connect to MQTT after certain time
-        delay(1000);
-    }
-    client.loop();
+    g_wifiConnected = true;
+
     server.handleClient(); // Handling of incoming web requests
     ArduinoOTA.handle();
+
+    bool mqttConnected = connectToMqtt();
+    if (!mqttConnected)
+    {
+        if (g_mqttConnected)
+        {
+            // we switched to disconnected
+            g_config.mqttDisconnectCounter++;
+            saveSettings();
+        }
+        g_mqttConnected = false;
+        delay(1000);
+        return;
+    }
+    g_mqttConnected = true;
+
+    client.loop();
     if (g_shouldSend)
     {
         uint32_t cmd = g_commandToSend;

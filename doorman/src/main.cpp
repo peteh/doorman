@@ -134,6 +134,7 @@ MqttText mqttConfigCodeApartmentPatternDetect(&mqttDevice, "config_code_apartmen
 MqttText mqttConfigCodeEntryPatternDetect(&mqttDevice, "config_code_entry_pattern_detected", "Entry Pattern Detected Code");
 MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party Mode Code");
 
+MqttButton mqttDiagnosticsResetButton(&mqttDevice, "diagnostics_reset_btn", "Doorman Reset Counters");
 MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Doorman Restart Counter");
 MqttSensor mqttDiagnosticsWifiDisconnectCounter(&mqttDevice, "diagnostics_wifidisconnect_counter", "Doorman WiFi Disconnect Counter");
 MqttSensor mqttDiagnosticsMqttDisconnectCounter(&mqttDevice, "diagnostics_mqttdisconnect_counter", "Doorman MQTT Disconnect Counter");
@@ -178,7 +179,7 @@ void publishMqttConfigState(MqttEntity *entity, const uint32_t value)
     }
 }
 
-void publishMqttRestartCounterState(MqttEntity *entity, const uint32_t value)
+void publishMqttCounterState(MqttEntity *entity, const uint32_t value)
 {
     char state[9];
     snprintf(state, sizeof(state), "%u", value);
@@ -211,7 +212,14 @@ void publishPartyMode()
     publishMqttState(&mqttPartyMode, g_partyMode ? mqttPartyMode.getOnState() : mqttPartyMode.getOffState());
 }
 
-void publishConfigValues()
+void publishMqttDiagnostics()
+{
+    publishMqttCounterState(&mqttDiagnosticsRestartCounter, g_config.restartCounter);
+    publishMqttCounterState(&mqttDiagnosticsWifiDisconnectCounter, g_config.wifiDisconnectCounter);
+    publishMqttCounterState(&mqttDiagnosticsMqttDisconnectCounter, g_config.mqttDisconnectCounter);
+}
+
+void publishMqttConfigValues()
 {
     publishMqttConfigState(&mqttConfigCodeApartmentDoorBell, g_config.codeApartmentDoorBell);
     publishMqttConfigState(&mqttConfigCodeEntryDoorBell, g_config.codeEntryDoorBell);
@@ -220,7 +228,7 @@ void publishConfigValues()
     publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
     publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
     publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
-    publishMqttRestartCounterState(&mqttDiagnosticsRestartCounter, g_config.restartCounter);
+
 }
 
 void publishConfig(MqttEntity *entity)
@@ -259,7 +267,12 @@ void publishConfig()
     publishConfig(&mqttConfigCodeApartmentPatternDetect);
     publishConfig(&mqttConfigCodeEntryPatternDetect);
     publishConfig(&mqttConfigCodePartyMode);
+
+    // diag elements
+    publishConfig(&mqttDiagnosticsResetButton);
     publishConfig(&mqttDiagnosticsRestartCounter);
+    publishConfig(&mqttDiagnosticsWifiDisconnectCounter);
+    publishConfig(&mqttDiagnosticsMqttDisconnectCounter);
 
     delay(1000);
     // publish all initial states
@@ -271,8 +284,10 @@ void publishConfig()
     publishMqttState(&mqttEntryOpener, mqttEntryOpener.getOffState());
     publishMqttState(&mqttBus, "");
     publishPartyMode();
+    
+    publishMqttConfigValues();
 
-    publishConfigValues();
+    publishMqttDiagnostics();
 }
 
 bool connectToMqtt()
@@ -314,6 +329,8 @@ bool connectToMqtt()
     client.subscribe(mqttConfigCodeApartmentPatternDetect.getCommandTopic(), 1);
     client.subscribe(mqttConfigCodeEntryPatternDetect.getCommandTopic(), 1);
     client.subscribe(mqttConfigCodePartyMode.getCommandTopic(), 1);
+    
+    client.subscribe(mqttDiagnosticsResetButton.getCommandTopic(), 1);
 
     client.subscribe(HOMEASSISTANT_STATUS_TOPIC);
     client.subscribe(HOMEASSISTANT_STATUS_TOPIC_ALT);
@@ -519,7 +536,7 @@ void handleSaveSettingsConfig()
             strncpy(g_config.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(g_config.mqttPassword));
         }
         saveSettings();
-        // publishConfigValues();
+        // publishMqttConfigValues();
 
         // Send a response to the client
         String responseMessage = "Configuration updated successfully!";
@@ -547,7 +564,7 @@ void handleSaveCodeConfig()
         g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
         g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
         saveSettings();
-        publishConfigValues();
+        publishMqttConfigValues();
 
         // Send a response to the client
         String responseMessage = "Configuration updated successfully!";
@@ -676,6 +693,16 @@ void callback(char *topic, byte *payload, unsigned int length)
         publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
     }
 
+    else if (strcmp(topic, mqttDiagnosticsResetButton.getCommandTopic()) == 0)
+    {
+        bool pressed = strncmp((char *)payload, mqttDiagnosticsResetButton.getPressState(), length) == 0;
+        g_config.restartCounter = 0;
+        g_config.mqttDisconnectCounter = 0;
+        g_config.wifiDisconnectCounter = 0;
+        saveSettings();
+        publishMqttDiagnostics();
+    }
+
     // publish config when homeassistant comes online and needs the configuration again
     else if (strcmp(topic, HOMEASSISTANT_STATUS_TOPIC) == 0 ||
              strcmp(topic, HOMEASSISTANT_STATUS_TOPIC_ALT) == 0)
@@ -734,8 +761,16 @@ void setup()
     mqttConfigCodePartyMode.setMaxLetters(8);
     mqttConfigCodePartyMode.setEntityType(EntityCategory::CONFIG);
 
+    mqttDiagnosticsResetButton.setEntityType(EntityCategory::DIAGNOSTIC);
+
     mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
-    mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL_INCREASING);
+    mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL);
+
+    mqttDiagnosticsMqttDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
+    mqttDiagnosticsMqttDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
+
+    mqttDiagnosticsWifiDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
+    mqttDiagnosticsWifiDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
 
     g_led->begin();
     // turn on led until boot sequence finished
@@ -866,6 +901,7 @@ void loop()
             saveSettings();
         }
         g_wifiConnected = false;
+        g_mqttConnected = false;
         delay(1000);
         return;
     }
@@ -886,6 +922,11 @@ void loop()
         g_mqttConnected = false;
         delay(1000);
         return;
+    }
+    if(!g_mqttConnected)
+    {
+        // now we are successfully reconnected and publish our counters
+        publishMqttDiagnostics();
     }
     g_mqttConnected = true;
 

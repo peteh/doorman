@@ -762,15 +762,19 @@ void setup()
     mqttConfigCodePartyMode.setEntityType(EntityCategory::CONFIG);
 
     mqttDiagnosticsResetButton.setEntityType(EntityCategory::DIAGNOSTIC);
+    mqttDiagnosticsResetButton.setIcon("mdi:restart");
 
     mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
     mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL);
+    mqttDiagnosticsRestartCounter.setIcon("mdi:counter");
 
     mqttDiagnosticsMqttDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
     mqttDiagnosticsMqttDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
+    mqttDiagnosticsMqttDisconnectCounter.setIcon("mdi:counter");
 
     mqttDiagnosticsWifiDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
     mqttDiagnosticsWifiDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
+    mqttDiagnosticsWifiDisconnectCounter.setIcon("mdi:counter");
 
     g_led->begin();
     // turn on led until boot sequence finished

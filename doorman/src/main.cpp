@@ -268,23 +268,26 @@ void publishConfig()
     publishConfigValues();
 }
 
-void connectToMqtt()
+bool connectToMqtt()
 {
+    if(client.connected())
+    {
+        return true;
+    }
+    
     log_info("Connecting to MQTT...");
     if (strlen(mqtt_user) == 0)
     {
-        while (!client.connect(composeClientID().c_str()))
+        if (!client.connect(composeClientID().c_str()))
         {
-            log_debug(".");
-            delay(4000);
+            return false;
         }
     }
     else
     {
-        while (!client.connect(composeClientID().c_str(), mqtt_user, mqtt_pass))
+        if (!client.connect(composeClientID().c_str(), mqtt_user, mqtt_pass))
         {
-            log_debug(".");
-            delay(4000);
+            return false;
         }
     }
 
@@ -311,18 +314,13 @@ void connectToMqtt()
     // TODO: solve this somehow with auto discovery lib
     // client.publish(mqttTopic(MQTT_TOPIC_NONE, MQTT_ACTION_NONE).c_str(), "online");
     publishConfig();
+
+    return true;
 }
 
-void connectToWifi()
+bool connectToWifi()
 {
-    log_info("Connecting to wifi...");
-    // TODO: really forever? What if we want to go back to autoconnect?
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        log_debug(".");
-        delay(1000);
-    }
-    log_info("Wifi connected!");
+    return WiFi.status() == WL_CONNECTED;
 }
 
 void printSettings()
@@ -766,7 +764,14 @@ void setup()
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
 
-    connectToWifi();
+    log_info("Connecting to wifi...");
+    // TODO: really forever? What if we want to go back to autoconnect?
+    while (!connectToWifi())
+    {
+        log_debug(".");
+        delay(500);
+    }
+    log_info("Wifi connected!");
 
     log_info("Connected to SSID: %s", wifi_ssid);
     log_info("IP address: %s", WiFi.localIP().toString().c_str());
@@ -830,8 +835,6 @@ void setup()
       log_error("End Failed");
     } });
     ArduinoOTA.begin();
-
-    connectToWifi();
 }
 
 void loop()
@@ -842,13 +845,15 @@ void loop()
     #endif
     
     g_led->update();
-    if (WiFi.status() != WL_CONNECTED)
+    if (!connectToWifi())
     {
-        connectToWifi();
+        // TODO: add error handling for not being able to connect to WiFi after certain time
+        delay(1000);
     }
-    if (!client.connected())
+    if (!connectToMqtt())
     {
-        connectToMqtt();
+        // TODO: add error handling for not being able to connect to MQTT after certain time
+        delay(1000);
     }
     client.loop();
     server.handleClient(); // Handling of incoming web requests

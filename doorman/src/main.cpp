@@ -361,7 +361,7 @@ void handleCodeConfig()
     doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
     doc["codePartyMode"] = g_config.codePartyMode;
     doc["restartCounter"] = g_config.restartCounter;
-    doc["version"] = SYSTEM_NAME " (" __DATE__ ")";
+    doc["version"] = SYSTEM_NAME " " VERSION " (" __DATE__ ")";
 
     serializeJson(doc, configJson);
     server.send(200, "application/json", configJson);
@@ -380,7 +380,7 @@ void handleSettingsConfig()
     doc["mqttPort"] = g_config.mqttPort;
     doc["mqttUser"] = g_config.mqttUser;
     doc["mqttPassword"] = g_config.mqttPassword;
-    doc["version"] = SYSTEM_NAME " (" __DATE__ ")";
+    doc["version"] = SYSTEM_NAME " " VERSION " (" __DATE__ ")";
 
     serializeJson(doc, configJson);
     server.send(200, "application/json", configJson);
@@ -604,6 +604,8 @@ void setup()
     esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); //enable panic so ESP32 restarts
     esp_task_wdt_add(NULL); //add current thread to WDT watch
     #endif
+
+    mqttDevice.setSWVersion(VERSION);
 
     // further mqtt device config
     mqttBus.setPattern("[a-fA-F0-9]*");

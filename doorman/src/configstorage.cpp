@@ -3,6 +3,15 @@
 #include <esplog.h>
 #include <ArduinoJson.h>
 
+bool formatLittleFS()
+{
+    log_warn("need to format LittleFS: ");
+    LittleFS.end();
+    LittleFS.begin();
+    log_info("Success: %d", LittleFS.format());
+    return LittleFS.begin();
+}
+
 void saveSettings(Config &config)
 {
     // Open file for writing

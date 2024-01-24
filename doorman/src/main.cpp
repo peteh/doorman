@@ -29,22 +29,12 @@
 #include <MqttDevice.h>
 
 #include "datastruct.h"
+#include "platform.h"
 #include "configstorage.h"
 #include "utils.h"
 #include "config.h"
 #include "html.h"
 
-#ifdef ESP8266
-#define PIN_BUS_READ D5
-#define PIN_BUS_WRITE D6
-#define SYSTEM_NAME "ESP8266 Doorman"
-#endif
-
-#ifdef ESP32
-#define PIN_BUS_READ 12
-#define PIN_BUS_WRITE 13
-#define SYSTEM_NAME "ESP32 Doorman"
-#endif
 
 const uint WATCHDOG_TIMEOUT_S = 30;
 
@@ -93,14 +83,14 @@ Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
 // 0x1B8F9A41 own door bell at the flat door	feilipu/FreeRTOS@^10.4.6-1
 // 0x0B8F9A80 own door bell at the main door
 MqttDevice mqttDevice(composeClientID().c_str(), "Doorman", SYSTEM_NAME, "maker_pt");
-MqttSwitch mqttApartmentBell(&mqttDevice, "apartmentbell", "Apartment Bell");
+MqttSiren mqttApartmentBell(&mqttDevice, "apartmentbell", "Apartment Bell");
 MqttBinarySensor mqttApartmentBellPattern(&mqttDevice, "apartmentbellpattern", "Apartment Bell Pattern");
 
-MqttSwitch mqttEntryBell(&mqttDevice, "entrybell", "Entry Bell");
+MqttSiren mqttEntryBell(&mqttDevice, "entrybell", "Entry Bell");
 MqttBinarySensor mqttEntryBellPattern(&mqttDevice, "entrybellpattern", "Entry Bell Pattern");
 MqttSwitch mqttEntryOpener(&mqttDevice, "entryopener", "Door Opener");
 
-MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
+MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Party Mode");
 
 MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
 
@@ -166,6 +156,13 @@ void publishMqttCounterState(MqttEntity *entity, const uint32_t value)
 }
 
 void publishOnOffEdgeSwitch(MqttSwitch *entity)
+{
+    publishMqttState(entity, entity->getOnState());
+    delay(1000);
+    publishMqttState(entity, entity->getOffState());
+}
+
+void publishOnOffEdgeSiren(MqttSiren *entity)
 {
     publishMqttState(entity, entity->getOnState());
     delay(1000);
@@ -600,9 +597,6 @@ void setup()
     mqttBus.setMaxLetters(8);
     mqttBus.setIcon("mdi:console-network");
 
-    mqttApartmentBell.setIcon("mdi:bell");
-    mqttEntryBell.setIcon("mdi:bell");
-
     mqttPartyMode.setIcon("mdi:door-closed-lock");
     mqttEntryOpener.setIcon("mdi:door-open");
 
@@ -635,8 +629,8 @@ void setup()
     mqttConfigCodePartyMode.setEntityType(EntityCategory::CONFIG);
 
     mqttDiagnosticsResetButton.setEntityType(EntityCategory::DIAGNOSTIC);
-    mqttDiagnosticsResetButton.setIcon("mdi:restart");
-
+    mqttDiagnosticsResetButton.setDeviceClass("restart");
+    
     mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
     mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL);
     mqttDiagnosticsRestartCounter.setIcon("mdi:counter");
@@ -827,12 +821,12 @@ void loop()
 
         if (cmd == g_config.codeApartmentDoorBell)
         {
-            publishOnOffEdgeSwitch(&mqttApartmentBell);
+            publishOnOffEdgeSiren(&mqttApartmentBell);
         }
 
         if (cmd == g_config.codeEntryDoorBell)
         {
-            publishOnOffEdgeSwitch(&mqttEntryBell);
+            publishOnOffEdgeSiren(&mqttEntryBell);
         }
 
         if (cmd == g_config.codeDoorOpener)

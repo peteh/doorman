@@ -54,7 +54,6 @@ void saveSettings(Config &config)
     file.close();
 }
 
-
 void loadSettings(Config &config)
 {
     // Open file for reading

@@ -75,7 +75,6 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
-
 Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
 
 // apartement door:
@@ -208,7 +207,6 @@ void publishMqttConfigValues()
     publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
     publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
     publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
-
 }
 
 void publishConfig(MqttEntity *entity)
@@ -264,7 +262,7 @@ void publishConfig()
     publishMqttState(&mqttEntryOpener, mqttEntryOpener.getOffState());
     publishMqttState(&mqttBus, "");
     publishPartyMode();
-    
+
     publishMqttConfigValues();
 
     publishMqttDiagnostics();
@@ -272,11 +270,11 @@ void publishConfig()
 
 bool connectToMqtt()
 {
-    if(client.connected())
+    if (client.connected())
     {
         return true;
     }
-    
+
     log_info("Connecting to MQTT...");
     if (strlen(mqtt_user) == 0)
     {
@@ -309,7 +307,7 @@ bool connectToMqtt()
     client.subscribe(mqttConfigCodeApartmentPatternDetect.getCommandTopic(), 1);
     client.subscribe(mqttConfigCodeEntryPatternDetect.getCommandTopic(), 1);
     client.subscribe(mqttConfigCodePartyMode.getCommandTopic(), 1);
-    
+
     client.subscribe(mqttDiagnosticsResetButton.getCommandTopic(), 1);
 
     client.subscribe(HOMEASSISTANT_STATUS_TOPIC);
@@ -345,7 +343,6 @@ void printSettings()
     log_info("MQTT Password: %s", g_config.mqttPassword);
 }
 
-
 void handleCodeConfig()
 {
     // Respond with the current configuration in JSON format
@@ -375,7 +372,7 @@ void handleSettingsConfig()
 
     // Set the values in the document
     doc["wifiSsid"] = g_config.wifiSsid;
-    //doc["wifiPassword"] = g_config.wifiPassword;
+    // doc["wifiPassword"] = g_config.wifiPassword;
     doc["mqttServer"] = g_config.mqttServer;
     doc["mqttPort"] = g_config.mqttPort;
     doc["mqttUser"] = g_config.mqttUser;
@@ -590,11 +587,11 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void setup()
 {
-    #ifdef ESP32
+#ifdef ESP32
     // initialize watchdog
-    esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); //enable panic so ESP32 restarts
-    esp_task_wdt_add(NULL); //add current thread to WDT watch
-    #endif
+    esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); // enable panic so ESP32 restarts
+    esp_task_wdt_add(NULL);                      // add current thread to WDT watch
+#endif
 
     mqttDevice.setSWVersion(VERSION);
 
@@ -765,11 +762,11 @@ void setup()
 
 void loop()
 {
-    #ifdef ESP32
+#ifdef ESP32
     // reset watchdog, important to be called once each loop.
     esp_task_wdt_reset();
-    #endif
-    
+#endif
+
     g_led->update();
     bool wifiConnected = connectToWifi();
     if (!wifiConnected)
@@ -803,7 +800,7 @@ void loop()
         delay(1000);
         return;
     }
-    if(!g_mqttConnected)
+    if (!g_mqttConnected)
     {
         // now we are successfully reconnected and publish our counters
         publishMqttDiagnostics();

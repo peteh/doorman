@@ -114,10 +114,10 @@ MqttText mqttConfigCodeApartmentPatternDetect(&mqttDevice, "config_code_apartmen
 MqttText mqttConfigCodeEntryPatternDetect(&mqttDevice, "config_code_entry_pattern_detected", "Entry Pattern Detected Code");
 MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party Mode Code");
 
-MqttButton mqttDiagnosticsResetButton(&mqttDevice, "diagnostics_reset_btn", "Doorman Reset Counters");
-MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Doorman Restart Counter");
-MqttSensor mqttDiagnosticsWifiDisconnectCounter(&mqttDevice, "diagnostics_wifidisconnect_counter", "Doorman WiFi Disconnect Counter");
-MqttSensor mqttDiagnosticsMqttDisconnectCounter(&mqttDevice, "diagnostics_mqttdisconnect_counter", "Doorman MQTT Disconnect Counter");
+MqttButton mqttDiagnosticsResetButton(&mqttDevice, "diagnostics_reset_btn", "Reset Counters");
+MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Restart Counter");
+MqttSensor mqttDiagnosticsWifiDisconnectCounter(&mqttDevice, "diagnostics_wifidisconnect_counter", "WiFi Disconnect Counter");
+MqttSensor mqttDiagnosticsMqttDisconnectCounter(&mqttDevice, "diagnostics_mqttdisconnect_counter", "MQTT Disconnect Counter");
 
 bool g_partyMode = false;
 
@@ -468,15 +468,6 @@ void handleCodesPage()
 void handleSettingsPage()
 {
     server.send_P(200, "text/html", PAGE_SETTINGS);
-}
-
-bool formatLittleFS()
-{
-    log_warn("need to format LittleFS: ");
-    LittleFS.end();
-    LittleFS.begin();
-    log_info("Success: %d", LittleFS.format());
-    return LittleFS.begin();
 }
 
 void openDoor()

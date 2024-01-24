@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#define VERSION "2024.1.0"
+#define VERSION "2024.1.1"
 
 struct Config
 {

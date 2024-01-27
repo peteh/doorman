@@ -225,13 +225,6 @@ public:
         publishMqttState(entity, entity.getOffState());
     }
 
-    void publishOnOffEdgeLock(MqttLock &entity)
-    {
-        publishMqttState(entity, entity.getUnlockedState());
-        delay(1000);
-        publishMqttState(entity, entity.getLockedState());
-    }
-
     void publishConfig(Config &config)
     {
         publishConfig(m_apartmentBell);
@@ -322,6 +315,16 @@ public:
     void publishApartmentBellTrigger()
     {
         publishOnOffEdgeSiren(m_apartmentBell);
+    }
+
+    void publishBus(uint32_t cmd)
+    {
+        char byte_cmd[9];
+        sprintf(byte_cmd, "%08x", cmd);
+        if (!m_client->publish(m_bus.getStateTopic(), byte_cmd))
+        {
+            log_error("Failed to publish tcs data to %s", m_bus.getStateTopic());
+        }
     }
 
 private:

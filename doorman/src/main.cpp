@@ -652,13 +652,6 @@ void loop()
         }
 
         log_info("TCS Bus: %08x", cmd);
-
-        char byte_cmd[9];
-        sprintf(byte_cmd, "%08x", cmd);
-        // TODO: factor out
-        if (!client.publish(g_mqttView.getBus().getStateTopic(), byte_cmd))
-        {
-            log_error("Failed to publish tcs data to %s", g_mqttView.getBus().getStateTopic());
-        }
+        g_mqttView.publishBus(cmd);
     }
 }

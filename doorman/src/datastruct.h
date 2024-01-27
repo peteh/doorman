@@ -1,8 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#define VERSION "2024.1.1"
-
 struct Config
 {
     uint32_t codeApartmentDoorBell;
@@ -21,6 +19,7 @@ struct Config
     uint16_t mqttPort;
     char mqttUser[200];
     char mqttPassword[200];
+    bool partyMode;
 };
 
 #define CONFIG_FILENAME "/config.txt"

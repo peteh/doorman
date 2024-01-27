@@ -29,27 +29,19 @@
 #include <MqttDevice.h>
 
 #include "datastruct.h"
+#include "platform.h"
 #include "configstorage.h"
 #include "utils.h"
 #include "config.h"
 #include "html.h"
+#include "mqttview.h"
 
-#ifdef ESP8266
-#define PIN_BUS_READ D5
-#define PIN_BUS_WRITE D6
-#define SYSTEM_NAME "ESP8266 Doorman"
-#endif
-
-#ifdef ESP32
-#define PIN_BUS_READ 12
-#define PIN_BUS_WRITE 13
-#define SYSTEM_NAME "ESP32 Doorman"
-#endif
 
 const uint WATCHDOG_TIMEOUT_S = 30;
 
 WiFiClient net;
 PubSubClient client(net);
+MqttView g_mqttView(&client);
 
 #ifdef ESP8266
 ESP8266WebServer server(80);
@@ -75,50 +67,7 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
-Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883};
-
-// apartement door:
-//   doorman-[name]/apartment/bell/state -> on/off
-//   doorman-[name]/apartment/bell/pattern/state -> on/off
-// entry door:
-//   doorman-[name]/entry/bell/state -> on/off
-//   doorman-[name]/entry/bell/pattern/state -> on/off
-//   doorman-[name]/entry/opener/cmd
-//   doorman-[name]/partymode/state -> on/off
-
-// commands
-// 0x1100 door opener if the handset is not lifted up
-// 0x1180 door opener if the handset is lifted up
-
-// 0x1B8F9A41 own door bell at the flat door	feilipu/FreeRTOS@^10.4.6-1
-// 0x0B8F9A80 own door bell at the main door
-MqttDevice mqttDevice(composeClientID().c_str(), "Doorman", SYSTEM_NAME, "maker_pt");
-MqttSwitch mqttApartmentBell(&mqttDevice, "apartmentbell", "Apartment Bell");
-MqttBinarySensor mqttApartmentBellPattern(&mqttDevice, "apartmentbellpattern", "Apartment Bell Pattern");
-
-MqttSwitch mqttEntryBell(&mqttDevice, "entrybell", "Entry Bell");
-MqttBinarySensor mqttEntryBellPattern(&mqttDevice, "entrybellpattern", "Entry Bell Pattern");
-MqttSwitch mqttEntryOpener(&mqttDevice, "entryopener", "Door Opener");
-
-MqttSwitch mqttPartyMode(&mqttDevice, "partymode", "Door Opener Party Mode");
-
-MqttText mqttBus(&mqttDevice, "bus", "TCS Bus");
-
-// Configuration Settings
-MqttText mqttConfigCodeApartmentDoorBell(&mqttDevice, "config_code_apartment_door_bell", "Apartment Door Bell Code");
-MqttText mqttConfigCodeEntryDoorBell(&mqttDevice, "config_code_entry_door_bell", "Entry Door Bell Code");
-MqttText mqttConfigCodeHandsetLiftup(&mqttDevice, "config_code_handset_liftup", "Handset Liftup Code");
-MqttText mqttConfigCodeDoorOpener(&mqttDevice, "config_code_door_opener", "Entry Door Opener Code");
-MqttText mqttConfigCodeApartmentPatternDetect(&mqttDevice, "config_code_apartment_pattern_detected", "Apartment Pattern Detected Code");
-MqttText mqttConfigCodeEntryPatternDetect(&mqttDevice, "config_code_entry_pattern_detected", "Entry Pattern Detected Code");
-MqttText mqttConfigCodePartyMode(&mqttDevice, "config_code_party_mode", "Party Mode Code");
-
-MqttButton mqttDiagnosticsResetButton(&mqttDevice, "diagnostics_reset_btn", "Reset Counters");
-MqttSensor mqttDiagnosticsRestartCounter(&mqttDevice, "diagnostics_restart_counter", "Restart Counter");
-MqttSensor mqttDiagnosticsWifiDisconnectCounter(&mqttDevice, "diagnostics_wifidisconnect_counter", "WiFi Disconnect Counter");
-MqttSensor mqttDiagnosticsMqttDisconnectCounter(&mqttDevice, "diagnostics_mqttdisconnect_counter", "MQTT Disconnect Counter");
-
-bool g_partyMode = false;
+Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false};
 
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
@@ -139,134 +88,6 @@ bool g_mqttConnected = false;
 
 // TODO: wifi auto config
 // TODO: publish persistant
-
-void publishMqttState(MqttEntity *entity, const char *state)
-{
-    if (!client.publish(entity->getStateTopic(), state))
-    {
-        log_error("Failed to publish state to %s", entity->getStateTopic());
-    }
-}
-
-void publishMqttConfigState(MqttEntity *entity, const uint32_t value)
-{
-    char state[9];
-    snprintf(state, sizeof(state), "%08x", value);
-    if (!client.publish(entity->getStateTopic(), state))
-    {
-        log_error("Failed to publish state to %s", entity->getStateTopic());
-    }
-}
-
-void publishMqttCounterState(MqttEntity *entity, const uint32_t value)
-{
-    char state[9];
-    snprintf(state, sizeof(state), "%u", value);
-    client.publish(entity->getStateTopic(), state);
-}
-
-void publishOnOffEdgeSwitch(MqttSwitch *entity)
-{
-    publishMqttState(entity, entity->getOnState());
-    delay(1000);
-    publishMqttState(entity, entity->getOffState());
-}
-
-void publishOnOffEdgeBinary(MqttBinarySensor *entity)
-{
-    publishMqttState(entity, entity->getOnState());
-    delay(1000);
-    publishMqttState(entity, entity->getOffState());
-}
-
-void publishOnOffEdgeLock(MqttLock *entity)
-{
-    publishMqttState(entity, entity->getUnlockedState());
-    delay(1000);
-    publishMqttState(entity, entity->getLockedState());
-}
-
-void publishPartyMode()
-{
-    publishMqttState(&mqttPartyMode, g_partyMode ? mqttPartyMode.getOnState() : mqttPartyMode.getOffState());
-}
-
-void publishMqttDiagnostics()
-{
-    publishMqttCounterState(&mqttDiagnosticsRestartCounter, g_config.restartCounter);
-    publishMqttCounterState(&mqttDiagnosticsWifiDisconnectCounter, g_config.wifiDisconnectCounter);
-    publishMqttCounterState(&mqttDiagnosticsMqttDisconnectCounter, g_config.mqttDisconnectCounter);
-}
-
-void publishMqttConfigValues()
-{
-    publishMqttConfigState(&mqttConfigCodeApartmentDoorBell, g_config.codeApartmentDoorBell);
-    publishMqttConfigState(&mqttConfigCodeEntryDoorBell, g_config.codeEntryDoorBell);
-    publishMqttConfigState(&mqttConfigCodeHandsetLiftup, g_config.codeHandsetLiftup);
-    publishMqttConfigState(&mqttConfigCodeDoorOpener, g_config.codeDoorOpener);
-    publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
-    publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
-    publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
-}
-
-void publishConfig(MqttEntity *entity)
-{
-    String payload = entity->getHomeAssistantConfigPayload();
-    char topic[255];
-    entity->getHomeAssistantConfigTopic(topic, sizeof(topic));
-    if (!client.publish(topic, payload.c_str()))
-    {
-        log_error("Failed to publish config to %s", entity->getStateTopic());
-    }
-    entity->getHomeAssistantConfigTopicAlt(topic, sizeof(topic));
-    if (!client.publish(topic, payload.c_str()))
-    {
-        log_error("Failed to publish config to %s", entity->getStateTopic());
-    }
-}
-
-void publishConfig()
-{
-    publishConfig(&mqttApartmentBell);
-    publishConfig(&mqttApartmentBellPattern);
-
-    publishConfig(&mqttEntryBell);
-    publishConfig(&mqttEntryBellPattern);
-    publishConfig(&mqttEntryOpener);
-
-    publishConfig(&mqttPartyMode);
-
-    publishConfig(&mqttBus);
-
-    publishConfig(&mqttConfigCodeApartmentDoorBell);
-    publishConfig(&mqttConfigCodeEntryDoorBell);
-    publishConfig(&mqttConfigCodeHandsetLiftup);
-    publishConfig(&mqttConfigCodeDoorOpener);
-    publishConfig(&mqttConfigCodeApartmentPatternDetect);
-    publishConfig(&mqttConfigCodeEntryPatternDetect);
-    publishConfig(&mqttConfigCodePartyMode);
-
-    // diag elements
-    publishConfig(&mqttDiagnosticsResetButton);
-    publishConfig(&mqttDiagnosticsRestartCounter);
-    publishConfig(&mqttDiagnosticsWifiDisconnectCounter);
-    publishConfig(&mqttDiagnosticsMqttDisconnectCounter);
-
-    delay(1000);
-    // publish all initial states
-    publishMqttState(&mqttApartmentBell, mqttApartmentBell.getOffState());
-    publishMqttState(&mqttApartmentBellPattern, mqttApartmentBellPattern.getOffState());
-
-    publishMqttState(&mqttEntryBell, mqttEntryBell.getOffState());
-    publishMqttState(&mqttEntryBellPattern, mqttEntryBellPattern.getOffState());
-    publishMqttState(&mqttEntryOpener, mqttEntryOpener.getOffState());
-    publishMqttState(&mqttBus, "");
-    publishPartyMode();
-
-    publishMqttConfigValues();
-
-    publishMqttDiagnostics();
-}
 
 bool connectToMqtt()
 {
@@ -291,31 +112,31 @@ bool connectToMqtt()
         }
     }
 
-    client.subscribe(mqttApartmentBell.getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getApartmentBell().getCommandTopic(), 1);
 
-    client.subscribe(mqttEntryBell.getCommandTopic(), 1);
-    client.subscribe(mqttEntryOpener.getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getEntryBell().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getEntryOpener().getCommandTopic(), 1);
 
-    client.subscribe(mqttPartyMode.getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getPartyMode().getCommandTopic(), 1);
 
-    client.subscribe(mqttBus.getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getBus().getCommandTopic(), 1);
 
-    client.subscribe(mqttConfigCodeApartmentDoorBell.getCommandTopic(), 1);
-    client.subscribe(mqttConfigCodeEntryDoorBell.getCommandTopic(), 1);
-    client.subscribe(mqttConfigCodeHandsetLiftup.getCommandTopic(), 1);
-    client.subscribe(mqttConfigCodeDoorOpener.getCommandTopic(), 1);
-    client.subscribe(mqttConfigCodeApartmentPatternDetect.getCommandTopic(), 1);
-    client.subscribe(mqttConfigCodeEntryPatternDetect.getCommandTopic(), 1);
-    client.subscribe(mqttConfigCodePartyMode.getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodeApartmentDoorBell().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodeEntryDoorBell().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodeHandsetLiftup().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodeDoorOpener().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodeApartmentPatternDetect().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodeEntryPatternDetect().getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getConfigCodePartyMode().getCommandTopic(), 1);
 
-    client.subscribe(mqttDiagnosticsResetButton.getCommandTopic(), 1);
+    client.subscribe(g_mqttView.getDiagnosticsResetButton().getCommandTopic(), 1);
 
     client.subscribe(HOMEASSISTANT_STATUS_TOPIC);
     client.subscribe(HOMEASSISTANT_STATUS_TOPIC_ALT);
 
     // TODO: solve this somehow with auto discovery lib
     // client.publish(mqttTopic(MQTT_TOPIC_NONE, MQTT_ACTION_NONE).c_str(), "online");
-    publishConfig();
+    g_mqttView.publishConfig(g_config);
 
     return true;
 }
@@ -444,7 +265,7 @@ void handleSaveCodeConfig()
         g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
         g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
         saveSettings(g_config);
-        publishMqttConfigValues();
+        g_mqttView.publishConfigValues(g_config);
 
         // Send a response to the client
         String responseMessage = "Configuration updated successfully!";
@@ -490,88 +311,88 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
     Serial.println();
 
-    if (strcmp(topic, mqttBus.getCommandTopic()) == 0)
+    if (strcmp(topic, g_mqttView.getBus().getCommandTopic()) == 0)
     {
         uint32_t data = parseValue((char *)payload, length);
         g_commandToSend = data;
         g_shouldSend = true;
     }
-    else if (strcmp(topic, mqttEntryBell.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getEntryBell().getCommandTopic()) == 0)
     {
         g_commandToSend = g_config.codeEntryDoorBell;
         g_shouldSend = true;
     }
-    else if (strcmp(topic, mqttApartmentBell.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getApartmentBell().getCommandTopic()) == 0)
     {
         g_commandToSend = g_config.codeApartmentDoorBell;
         g_shouldSend = true;
     }
-    else if (strcmp(topic, mqttEntryOpener.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getEntryOpener().getCommandTopic()) == 0)
     {
         g_commandToSend = g_config.codeDoorOpener;
         g_shouldSend = true;
     }
 
-    else if (strcmp(topic, mqttPartyMode.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getPartyMode().getCommandTopic()) == 0)
     {
-        g_partyMode = strncmp((char *)payload, mqttPartyMode.getOnState(), length) == 0;
-        g_led->setBackgroundLight(g_partyMode);
+        g_config.partyMode = strncmp((char *)payload, g_mqttView.getPartyMode().getOnState(), length) == 0;
+        g_led->setBackgroundLight(g_config.partyMode);
         g_led->blinkAsync(); // force update of led
-        publishPartyMode();
+        g_mqttView.publishPartyMode(g_config.partyMode);
     }
 
     // Save config entries from Homeassistant
-    else if (strcmp(topic, mqttConfigCodeApartmentDoorBell.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodeApartmentDoorBell().getCommandTopic()) == 0)
     {
         g_config.codeApartmentDoorBell = parseValue((char *)payload, length);
-        publishMqttConfigState(&mqttConfigCodeApartmentDoorBell, g_config.codeApartmentDoorBell);
         saveSettings(g_config);
+        g_mqttView.publishConfigValues(g_config);
     }
-    else if (strcmp(topic, mqttConfigCodeEntryDoorBell.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodeEntryDoorBell().getCommandTopic()) == 0)
     {
         g_config.codeEntryDoorBell = parseValue((char *)payload, length);
         saveSettings(g_config);
-        publishMqttConfigState(&mqttConfigCodeEntryDoorBell, g_config.codeEntryDoorBell);
+        g_mqttView.publishConfigValues(g_config);
     }
-    else if (strcmp(topic, mqttConfigCodeHandsetLiftup.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodeHandsetLiftup().getCommandTopic()) == 0)
     {
         g_config.codeHandsetLiftup = parseValue((char *)payload, length);
         saveSettings(g_config);
-        publishMqttConfigState(&mqttConfigCodeHandsetLiftup, g_config.codeHandsetLiftup);
+        g_mqttView.publishConfigValues(g_config);
     }
-    else if (strcmp(topic, mqttConfigCodeDoorOpener.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodeDoorOpener().getCommandTopic()) == 0)
     {
         g_config.codeDoorOpener = parseValue((char *)payload, length);
         saveSettings(g_config);
-        publishMqttConfigState(&mqttConfigCodeDoorOpener, g_config.codeDoorOpener);
+        g_mqttView.publishConfigValues(g_config);
     }
-    else if (strcmp(topic, mqttConfigCodeApartmentPatternDetect.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodeApartmentPatternDetect().getCommandTopic()) == 0)
     {
         g_config.codeApartmentPatternDetect = parseValue((char *)payload, length);
         saveSettings(g_config);
-        publishMqttConfigState(&mqttConfigCodeApartmentPatternDetect, g_config.codeApartmentPatternDetect);
+        g_mqttView.publishConfigValues(g_config);
     }
-    else if (strcmp(topic, mqttConfigCodeEntryPatternDetect.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodeEntryPatternDetect().getCommandTopic()) == 0)
     {
         g_config.codeEntryPatternDetect = parseValue((char *)payload, length);
         saveSettings(g_config);
-        publishMqttConfigState(&mqttConfigCodeEntryPatternDetect, g_config.codeEntryPatternDetect);
+        g_mqttView.publishConfigValues(g_config);
     }
-    else if (strcmp(topic, mqttConfigCodePartyMode.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getConfigCodePartyMode().getCommandTopic()) == 0)
     {
         g_config.codePartyMode = parseValue((char *)payload, length);
         saveSettings(g_config);
-        publishMqttConfigState(&mqttConfigCodePartyMode, g_config.codePartyMode);
+        g_mqttView.publishConfigValues(g_config);
     }
 
-    else if (strcmp(topic, mqttDiagnosticsResetButton.getCommandTopic()) == 0)
+    else if (strcmp(topic, g_mqttView.getDiagnosticsResetButton().getCommandTopic()) == 0)
     {
-        bool pressed = strncmp((char *)payload, mqttDiagnosticsResetButton.getPressState(), length) == 0;
+        bool pressed = strncmp((char *)payload, g_mqttView.getDiagnosticsResetButton().getPressState(), length) == 0;
         g_config.restartCounter = 0;
         g_config.mqttDisconnectCounter = 0;
         g_config.wifiDisconnectCounter = 0;
         saveSettings(g_config);
-        publishMqttDiagnostics();
+        g_mqttView.publishDiagnostics(g_config);
     }
 
     // publish config when homeassistant comes online and needs the configuration again
@@ -580,7 +401,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     {
         if (strncmp((char *)payload, "online", length) == 0)
         {
-            publishConfig();
+            g_mqttView.publishConfig(g_config);
         }
     }
 }
@@ -592,62 +413,6 @@ void setup()
     esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); // enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);                      // add current thread to WDT watch
 #endif
-
-    mqttDevice.setSWVersion(VERSION);
-
-    // further mqtt device config
-    mqttBus.setPattern("[a-fA-F0-9]*");
-    mqttBus.setMaxLetters(8);
-    mqttBus.setIcon("mdi:console-network");
-
-    mqttApartmentBell.setIcon("mdi:bell");
-    mqttEntryBell.setIcon("mdi:bell");
-
-    mqttPartyMode.setIcon("mdi:door-closed-lock");
-    mqttEntryOpener.setIcon("mdi:door-open");
-
-    mqttConfigCodeApartmentDoorBell.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodeApartmentDoorBell.setMaxLetters(8);
-    mqttConfigCodeApartmentDoorBell.setEntityType(EntityCategory::CONFIG);
-
-    mqttConfigCodeEntryDoorBell.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodeEntryDoorBell.setMaxLetters(8);
-    mqttConfigCodeEntryDoorBell.setEntityType(EntityCategory::CONFIG);
-
-    mqttConfigCodeHandsetLiftup.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodeHandsetLiftup.setMaxLetters(8);
-    mqttConfigCodeHandsetLiftup.setEntityType(EntityCategory::CONFIG);
-
-    mqttConfigCodeDoorOpener.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodeDoorOpener.setMaxLetters(8);
-    mqttConfigCodeDoorOpener.setEntityType(EntityCategory::CONFIG);
-
-    mqttConfigCodeApartmentPatternDetect.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodeApartmentPatternDetect.setMaxLetters(8);
-    mqttConfigCodeApartmentPatternDetect.setEntityType(EntityCategory::CONFIG);
-
-    mqttConfigCodeEntryPatternDetect.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodeEntryPatternDetect.setMaxLetters(8);
-    mqttConfigCodeEntryPatternDetect.setEntityType(EntityCategory::CONFIG);
-
-    mqttConfigCodePartyMode.setPattern("[a-fA-F0-9]*");
-    mqttConfigCodePartyMode.setMaxLetters(8);
-    mqttConfigCodePartyMode.setEntityType(EntityCategory::CONFIG);
-
-    mqttDiagnosticsResetButton.setEntityType(EntityCategory::DIAGNOSTIC);
-    mqttDiagnosticsResetButton.setIcon("mdi:restart");
-
-    mqttDiagnosticsRestartCounter.setEntityType(EntityCategory::DIAGNOSTIC);
-    mqttDiagnosticsRestartCounter.setStateClass(MqttSensor::StateClass::TOTAL);
-    mqttDiagnosticsRestartCounter.setIcon("mdi:counter");
-
-    mqttDiagnosticsMqttDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
-    mqttDiagnosticsMqttDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
-    mqttDiagnosticsMqttDisconnectCounter.setIcon("mdi:counter");
-
-    mqttDiagnosticsWifiDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
-    mqttDiagnosticsWifiDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
-    mqttDiagnosticsWifiDisconnectCounter.setIcon("mdi:counter");
 
     g_led->begin();
     // turn on led until boot sequence finished
@@ -700,7 +465,7 @@ void setup()
     log_info("IP address: %s", WiFi.localIP().toString().c_str());
     char configUrl[256];
     snprintf(configUrl, sizeof(configUrl), "http://%s/", WiFi.localIP().toString().c_str());
-    mqttDevice.setConfigurationUrl(configUrl);
+    g_mqttView.getDevice().setConfigurationUrl(configUrl);
 
     client.setBufferSize(1024);
     client.setServer(mqtt_server, mqtt_port);
@@ -803,7 +568,7 @@ void loop()
     if (!g_mqttConnected)
     {
         // now we are successfully reconnected and publish our counters
-        publishMqttDiagnostics();
+        g_mqttView.publishDiagnostics(g_config);
     }
     g_mqttConnected = true;
 
@@ -827,20 +592,20 @@ void loop()
 
         if (cmd == g_config.codeApartmentDoorBell)
         {
-            publishOnOffEdgeSwitch(&mqttApartmentBell);
+            g_mqttView.publishApartmentBellTrigger();
         }
 
         if (cmd == g_config.codeEntryDoorBell)
         {
-            publishOnOffEdgeSwitch(&mqttEntryBell);
+            g_mqttView.publishEntryBellTrigger();
         }
 
         if (cmd == g_config.codeDoorOpener)
         {
-            publishOnOffEdgeSwitch(&mqttEntryOpener);
+            g_mqttView.publishEntryOpenerTrigger();
         }
 
-        if (g_partyMode && cmd == g_config.codePartyMode)
+        if (g_config.partyMode && cmd == g_config.codePartyMode)
         {
             // we have a party, let everybody in
             openDoor();
@@ -860,11 +625,11 @@ void loop()
 
             if (g_handsetLiftup == 3)
             {
-                g_partyMode = !g_partyMode;
+                g_config.partyMode = !g_config.partyMode;
                 g_handsetLiftup = 0;
-                g_led->setBackgroundLight(g_partyMode);
+                g_led->setBackgroundLight(g_config.partyMode);
                 g_led->blinkAsync();
-                publishPartyMode();
+                g_mqttView.publishPartyMode(g_config.partyMode);
             }
         }
 
@@ -872,8 +637,9 @@ void loop()
         {
             if (patternRecognitionEntry.trigger())
             {
+                // TODO: make pattern configurable and enableable
                 openDoor();
-                publishOnOffEdgeBinary(&mqttEntryBellPattern);
+                g_mqttView.publishEntryBellPatternTrigger();
             }
         }
 
@@ -881,17 +647,11 @@ void loop()
         {
             if (patternRecognitionApartment.trigger())
             {
-                publishOnOffEdgeBinary(&mqttApartmentBellPattern);
+                g_mqttView.publishApartmentBellPatternTrigger();
             }
         }
 
         log_info("TCS Bus: %08x", cmd);
-
-        char byte_cmd[9];
-        sprintf(byte_cmd, "%08x", cmd);
-        if (!client.publish(mqttBus.getStateTopic(), byte_cmd))
-        {
-            log_error("Failed to publish tcs data to %s", mqttBus.getStateTopic());
-        }
+        g_mqttView.publishBus(cmd);
     }
 }

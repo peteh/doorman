@@ -36,7 +36,6 @@
 #include "html.h"
 #include "mqttview.h"
 
-
 const uint WATCHDOG_TIMEOUT_S = 30;
 
 WiFiClient net;
@@ -507,7 +506,10 @@ void setup()
     ArduinoOTA.onEnd([]()
                      { log_info("End"); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { log_info("Progress: %u%%\r", (progress / (total / 100))); });
+                          {
+        // reset watchdog during update
+        esp_task_wdt_reset();
+        log_info("Progress: %u%%\r", (progress / (total / 100))); });
     ArduinoOTA.onError([](ota_error_t error)
                        {
     log_error("Error[%u]: ", error);

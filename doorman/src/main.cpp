@@ -508,7 +508,9 @@ void setup()
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
                           {
         // reset watchdog during update
-        esp_task_wdt_reset();
+        #ifdef ESP32
+            esp_task_wdt_reset();
+        #endif
         log_info("Progress: %u%%\r", (progress / (total / 100))); });
     ArduinoOTA.onError([](ota_error_t error)
                        {

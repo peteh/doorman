@@ -40,13 +40,13 @@ The P line can be used for power supply. You can also skip the part and power th
 ### Part list
 
 * 1x Microcontroller 1x (Choose one)
-  * Wemos D1 Mini (based on ESP8266, does have single color led) [Buy on Amazon](https://amzn.to/3VmqxsN) / [Buy on aliexpress](https://s.click.aliexpress.com/e/_Dkct0Yl)
-  * Wemos S2 Mini (based on ESP32-S2, does not have led) [Buy on Amazon](https://amzn.to/3nkMbRq) / [Buy on aliexpress](https://s.click.aliexpress.com/e/_Dnoy8df)
+  * Wemos D1 Mini (based on ESP8266, does have single color led) [Buy on Amazon (partner link)](https://amzn.to/3VmqxsN) / [Buy on aliexpress (partner link)](https://s.click.aliexpress.com/e/_Dkct0Yl)
+  * Wemos S2 Mini (based on ESP32-S2, does not have led) [Buy on Amazon (partner link)](https://amzn.to/3nkMbRq) / [Buy on aliexpress (partner link)](https://s.click.aliexpress.com/e/_Dnoy8df)
   * Wemos S3 Mini (based on ESP32-S3, does have RGB led)
-* 1x ULN2003A (to send commands to the bus)
+* 1x ULN2003A (to send commands to the bus) [Buy on Amazon (partner link)](https://amzn.to/48Qoq6i)
 * 1x Traco TSR1 2405 (dc/dc 24V to 5V as power supply for Wemos)
-* 1x tripple screw terminal (to connect to the bus)
-* 2x double screw terminal (optional, to connect switch and led)
+* 1x tripple screw terminal (to connect to the bus) [Buy on Amazon (partner link)](https://amzn.to/3OrmcSC)
+* 2x double screw terminal (optional, to connect switch and led) [Buy on Amazon (partner link)](https://amzn.to/3OrmcSC)
 * 1x 1 MOhm resistor
 * 1x 1 kOhm resistor
 * 1x 147 kOhm

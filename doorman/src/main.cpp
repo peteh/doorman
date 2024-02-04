@@ -37,6 +37,7 @@
 #include "mqttview.h"
 
 const uint WATCHDOG_TIMEOUT_S = 30;
+const uint WIFI_DISCONNECT_FORCED_RESTART_S = 60;
 
 WiFiClient net;
 PubSubClient client(net);
@@ -84,6 +85,7 @@ unsigned long g_tsLastHandsetLiftup = 0;
 
 bool g_wifiConnected = false;
 bool g_mqttConnected = false;
+unsigned long g_lastWifiConnect = 0;
 
 // TODO: wifi auto config
 // TODO: publish persistant
@@ -458,6 +460,9 @@ void setup()
         log_debug(".");
         delay(500);
     }
+    g_wifiConnected = true;
+    g_lastWifiConnect = millis();
+
     log_info("Wifi connected!");
 
     log_info("Connected to SSID: %s", wifi_ssid);
@@ -546,12 +551,18 @@ void loop()
             g_config.wifiDisconnectCounter++;
             saveSettings(g_config);
         }
+        if (millis() - g_lastWifiConnect > WIFI_DISCONNECT_FORCED_RESTART_S * 1000)
+        {
+            log_warn("Wifi could not connect in time, will force a restart");
+            esp_restart();
+        }
         g_wifiConnected = false;
         g_mqttConnected = false;
         delay(1000);
         return;
     }
     g_wifiConnected = true;
+    g_lastWifiConnect = millis();
 
     server.handleClient(); // Handling of incoming web requests
     ArduinoOTA.handle();

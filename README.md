@@ -1,6 +1,6 @@
 # doorman
 
-Doorman is an ESP8266 based mqtt bridge for TCS door control systems (<https://www.tcsag.de/>).
+Doorman is an ESP32 or ESP8266 based mqtt bridge for TCS door control systems (<https://www.tcsag.de/>).
 
 ![doorman opener](doc/doorman.gif)
 

@@ -52,7 +52,8 @@ public:
           m_diagnosticsResetButton(&m_device, "diagnostics_reset_btn", "Reset Counters"),
           m_diagnosticsRestartCounter(&m_device, "diagnostics_restart_counter", "Restart Counter"),
           m_diagnosticsWifiDisconnectCounter(&m_device, "diagnostics_wifidisconnect_counter", "WiFi Disconnect Counter"),
-          m_diagnosticsMqttDisconnectCounter(&m_device, "diagnostics_mqttdisconnect_counter", "MQTT Disconnect Counter")
+          m_diagnosticsMqttDisconnectCounter(&m_device, "diagnostics_mqttdisconnect_counter", "MQTT Disconnect Counter"),
+          m_diagnosticsBssid(&m_device, "diagnostics_bssid", "BSSID")
     {
 
         m_device.setSWVersion(VERSION);
@@ -107,6 +108,9 @@ public:
         m_diagnosticsWifiDisconnectCounter.setEntityType(EntityCategory::DIAGNOSTIC);
         m_diagnosticsWifiDisconnectCounter.setStateClass(MqttSensor::StateClass::TOTAL);
         m_diagnosticsWifiDisconnectCounter.setIcon("mdi:counter");
+
+        m_diagnosticsBssid.setEntityType(EntityCategory::DIAGNOSTIC);
+        m_diagnosticsBssid.setIcon("mdi:wifi");
     }
 
     MqttDevice &getDevice()
@@ -251,6 +255,7 @@ public:
         publishConfig(m_diagnosticsRestartCounter);
         publishConfig(m_diagnosticsWifiDisconnectCounter);
         publishConfig(m_diagnosticsMqttDisconnectCounter);
+        publishConfig(m_diagnosticsBssid);
 
         delay(1000);
 
@@ -266,7 +271,7 @@ public:
 
         publishConfigValues(config);
 
-        publishDiagnostics(config);
+        publishDiagnostics(config, "");
     }
 
     void publishConfigValues(Config &config)
@@ -280,11 +285,12 @@ public:
         publishMqttConfigState(m_configCodePartyMode, config.codePartyMode);
     }
 
-    void publishDiagnostics(Config &g_config)
+    void publishDiagnostics(Config &g_config, const char* bssid)
     {
         publishMqttCounterState(m_diagnosticsRestartCounter, g_config.restartCounter);
         publishMqttCounterState(m_diagnosticsWifiDisconnectCounter, g_config.wifiDisconnectCounter);
         publishMqttCounterState(m_diagnosticsMqttDisconnectCounter, g_config.mqttDisconnectCounter);
+        publishMqttState(m_diagnosticsBssid, bssid);
     }
 
     void publishPartyMode(bool partyMode)
@@ -356,6 +362,8 @@ private:
     MqttSensor m_diagnosticsRestartCounter;
     MqttSensor m_diagnosticsWifiDisconnectCounter;
     MqttSensor m_diagnosticsMqttDisconnectCounter;
+    MqttSensor m_diagnosticsBssid;
+    
 
     void publishConfig(MqttEntity &entity)
     {

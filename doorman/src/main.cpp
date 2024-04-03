@@ -87,6 +87,7 @@ bool g_wifiConnected = false;
 bool g_mqttConnected = false;
 unsigned long g_lastWifiConnect = 0;
 
+String g_bssid = "";
 // TODO: wifi auto config
 // TODO: publish persistant
 
@@ -393,7 +394,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         g_config.mqttDisconnectCounter = 0;
         g_config.wifiDisconnectCounter = 0;
         saveSettings(g_config);
-        g_mqttView.publishDiagnostics(g_config);
+        g_mqttView.publishDiagnostics(g_config, g_bssid.c_str());
     }
 
     // publish config when homeassistant comes online and needs the configuration again
@@ -451,7 +452,14 @@ void setup()
 
     WiFi.setHostname(composeClientID().c_str());
     WiFi.mode(WIFI_STA);
+    #ifdef ESP32
+        // select the AP with the strongest signal
+        WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+        WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+    #endif
+
     WiFi.begin(wifi_ssid, wifi_pass);
+
 
     log_info("Connecting to wifi...");
     // TODO: really forever? What if we want to go back to autoconnect?
@@ -467,6 +475,8 @@ void setup()
 
     log_info("Connected to SSID: %s", wifi_ssid);
     log_info("IP address: %s", WiFi.localIP().toString().c_str());
+    g_bssid = WiFi.BSSIDstr();
+
     char configUrl[256];
     snprintf(configUrl, sizeof(configUrl), "http://%s/", WiFi.localIP().toString().c_str());
     g_mqttView.getDevice().setConfigurationUrl(configUrl);
@@ -583,7 +593,8 @@ void loop()
     if (!g_mqttConnected)
     {
         // now we are successfully reconnected and publish our counters
-        g_mqttView.publishDiagnostics(g_config);
+        g_bssid = WiFi.BSSIDstr();
+        g_mqttView.publishDiagnostics(g_config, g_bssid.c_str());
     }
     g_mqttConnected = true;
 

@@ -564,7 +564,7 @@ void loop()
         if (millis() - g_lastWifiConnect > WIFI_DISCONNECT_FORCED_RESTART_S * 1000)
         {
             log_warn("Wifi could not connect in time, will force a restart");
-            esp_restart();
+            ESP.restart();
         }
         g_wifiConnected = false;
         g_mqttConnected = false;

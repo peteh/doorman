@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define VERSION "2024.4.0"
+#define VERSION "2024.4.1"
 
 #ifdef ESP8266
 #define PIN_BUS_READ D5

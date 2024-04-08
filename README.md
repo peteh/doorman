@@ -1,12 +1,14 @@
-# doorman
+# Doorman
 
-Doorman is an ESP32 or ESP8266 based mqtt bridge for TCS door control systems (<https://www.tcsag.de/>).
+Doorman is an ESP32 or ESP8266 based mqtt bridge to connect your [TCS](https://www.tcsag.de/) or [Koch](https://www.kochag.ch/) Intercom to any home automation system.
 
 ![doorman opener](doc/doorman.gif)
 
 ## Main Features
 
-* Mqtt integration for all messages read from the bus and for writing messages to the bus
+* Support for TCS bus based intercom systems from TCS AG (Germany) or Koch AG (Switzerland)
+* Automatic Homeassistant discovery via MQTT
+* MQTT integration for all messages read from the bus and for writing messages to the bus
 * Button push pattern detection - you can define a pattern and assign a code that is written to the bus if the pattern is detected (Example: automatically open the door if the doorbell is pressed x times in a certain way). A successfully detected pattern is also published via mqtt.
 * Party mode (When this is enabled, the door opener automatically opens if the door bell is pressed)
 
@@ -27,6 +29,14 @@ If you already have Homeassistant configured with the mqtt integration on the sa
 The codes that are specific to your flat are the long ones (without 0000 prefix).
 
 ![TCS Bus](doc/tcsbus.png)
+
+## Prebuilt PCB and Case
+
+AzonInc created a PCB with the doorman circuits and 3D printable housing. The project supports integration via ESPhome.
+
+<https://github.com/AzonInc/Doorman>
+
+It's currently a work in progress and I haven't added official support to the platformio project yet.
 
 ## Wiring
 
@@ -58,12 +68,14 @@ The P line can be used for power supply. You can also skip the part and power th
 
 There are still a view things open.
 
-* Refactor config management, it's a lot of code duplication at the moment
-* Maybe allow wifi/mqtt configuration without the need for project compilation
+* Allow wifi/mqtt configuration without the need for project compilation
 
 ## Credits
 
 Doorman is heavily built on the code and the information of the following two projects:
+
+**Doorman S3** PCB and case for TCS intercom with ESPhome firmware \
+<https://github.com/AzonInc/Doorman>
 
 **TCSIntercomArduino** different methods to read from and write to TCS bus \
 Reverse Engineering video: <https://www.youtube.com/watch?v=xFLoauqj9yA&t=11s> \

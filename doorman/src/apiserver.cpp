@@ -24,14 +24,7 @@ void ApiServer::begin()
     m_server.on("/api/v1/codes", HTTP_POST, std::bind(&ApiServer::handleCodeConfigSave, this));
     m_server.on("/api/v1/device/settings", HTTP_GET, std::bind(&ApiServer::handleDeviceSettings, this));
     m_server.on("/api/v1/device/settings", HTTP_POST, std::bind(&ApiServer::handleDeviceSettingsSave, this));
-    //m_server.on("/api/v1/device/wifi", HTTP_POST, std::bind(&ApiServer::handleDeviceWifiPost, this));
-    //m_server.on("/api/v1/device/info", HTTP_GET, std::bind(&ApiServer::handleDeviceInfo, this));
     m_server.on("/api/v1/device/reboot", HTTP_GET, std::bind(&ApiServer::handleDeviceReboot, this));
-    //m_server.on("/api/v1/runs/list", HTTP_GET, std::bind(&ApiServer::handleListRuns, this));
-    //m_server.on(UriBraces("/api/v1/runs/data/{}"), HTTP_GET, std::bind(&ApiServer::handleRunData, this));
-    //m_server.on(UriBraces("/api/v1/runs/bin/{}"), HTTP_GET, std::bind(&ApiServer::handleRunBinary, this));
-    //m_server.on(UriBraces("/api/v1/runs/csv/{}"), HTTP_GET, std::bind(&ApiServer::handleRunCSV, this));
-    //m_server.on(UriBraces("/api/v1/runs/delete/{}"), HTTP_GET, std::bind(&ApiServer::handleRunDelete, this));
 }
 
 // WEB PAGES

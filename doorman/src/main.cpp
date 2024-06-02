@@ -74,8 +74,6 @@ bool g_mqttConnected = false;
 unsigned long g_lastWifiConnect = 0;
 
 String g_bssid = "";
-// TODO: wifi auto config
-// TODO: publish persistant
 
 bool connectToMqtt()
 {
@@ -301,6 +299,7 @@ void setup()
         }
     }
     log_info("Finished Mounting");
+
     g_settings.begin();
     Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
     generalSettings.restartCounter++;
@@ -335,6 +334,8 @@ void setup()
     {
         log_debug(".");
         delay(500);
+
+        // TODO: force AP mode once and disable mqtt
     }
     g_wifiConnected = true;
     g_lastWifiConnect = millis();
@@ -406,7 +407,6 @@ void loop()
         if (g_wifiConnected)
         {
             // we switched to disconnected
-
             Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
             generalSettings.wifiDisconnectCounter++;
             g_settings.setGeneralSettings(generalSettings);

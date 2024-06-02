@@ -3,13 +3,11 @@
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #endif
 
 #ifdef ESP32
 #include <WiFi.h>
-#include <WebServer.h>
 #include <mdns.h>
 // watch dog
 #include <esp_task_wdt.h>
@@ -28,9 +26,9 @@
 
 #include <MqttDevice.h>
 
-#include "datastruct.h"
+#include "apiserver.h"
+
 #include "platform.h"
-#include "configstorage.h"
 #include "utils.h"
 #include "config.h"
 #include "html.h"
@@ -43,18 +41,8 @@ WiFiClient net;
 PubSubClient client(net);
 MqttView g_mqttView(&client);
 
-#ifdef ESP8266
-ESP8266WebServer server(80);
-#endif
-
-#ifdef ESP32
-WebServer server(80);
-#endif
-
-#ifdef ARDUINO_LOLIN_S3_MINI
-#define SUPPORT_RGB_LED 1
-#define RGB_LED_PIN 47
-#endif
+Settings g_settings;
+ApiServer server(&g_settings);
 
 #ifdef SUPPORT_RGB_LED
 #include "led_rgb.h"
@@ -66,8 +54,6 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
-
-Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false};
 
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
@@ -99,7 +85,7 @@ bool connectToMqtt()
     }
 
     log_info("Connecting to MQTT...");
-    if (strlen(mqtt_user) == 0)
+    if (strlen(MQTT_USER) == 0)
     {
         if (!client.connect(composeClientID().c_str()))
         {
@@ -108,7 +94,7 @@ bool connectToMqtt()
     }
     else
     {
-        if (!client.connect(composeClientID().c_str(), mqtt_user, mqtt_pass))
+        if (!client.connect(composeClientID().c_str(), MQTT_USER, MQTT_PASS))
         {
             return false;
         }
@@ -138,7 +124,7 @@ bool connectToMqtt()
 
     // TODO: solve this somehow with auto discovery lib
     // client.publish(mqttTopic(MQTT_TOPIC_NONE, MQTT_ACTION_NONE).c_str(), "online");
-    g_mqttView.publishConfig(g_config);
+    g_mqttView.publishConfig(g_settings);
 
     return true;
 }
@@ -148,152 +134,10 @@ bool connectToWifi()
     return WiFi.status() == WL_CONNECTED;
 }
 
-void printSettings()
-{
-    log_info("Code Apartment Door Bell: %08x", g_config.codeApartmentDoorBell);
-    log_info("Code Entry Door Bell: %08x", g_config.codeEntryDoorBell);
-    log_info("Code Handset Liftup: %08x", g_config.codeHandsetLiftup);
-    log_info("Code Door Opener: %08x", g_config.codeDoorOpener);
-    log_info("Code Apartment Door Pattern Detection: %08x", g_config.codeApartmentPatternDetect);
-    log_info("Code Entry Door Pattern Detection: %08x", g_config.codeEntryPatternDetect);
-    log_info("Code Party Mode: %08x", g_config.codePartyMode);
-
-    log_info("Wifi SSID: %s", g_config.wifiSsid);
-    log_info("Wifi Password: %s", g_config.wifiPassword);
-    log_info("MQTT Server: %s", g_config.mqttServer);
-    log_info("MQTT Port: %d", g_config.mqttPort);
-    log_info("MQTT User: %s", g_config.mqttUser);
-    log_info("MQTT Password: %s", g_config.mqttPassword);
-}
-
-void handleCodeConfig()
-{
-    // Respond with the current configuration in JSON format
-    String configJson;
-    StaticJsonDocument<1024> doc;
-
-    // Set the values in the document
-    doc["codeApartmentDoorBell"] = g_config.codeApartmentDoorBell;
-    doc["codeEntryDoorBell"] = g_config.codeEntryDoorBell;
-    doc["codeHandsetLiftup"] = g_config.codeHandsetLiftup;
-    doc["codeDoorOpener"] = g_config.codeDoorOpener;
-    doc["codeApartmentPatternDetect"] = g_config.codeApartmentPatternDetect;
-    doc["codeEntryPatternDetect"] = g_config.codeEntryPatternDetect;
-    doc["codePartyMode"] = g_config.codePartyMode;
-    doc["restartCounter"] = g_config.restartCounter;
-    doc["version"] = SYSTEM_NAME " " VERSION " (" __DATE__ ")";
-
-    serializeJson(doc, configJson);
-    server.send(200, "application/json", configJson);
-}
-
-void handleSettingsConfig()
-{
-    // Respond with the current configuration in JSON format
-    String configJson;
-    StaticJsonDocument<1024> doc;
-
-    // Set the values in the document
-    doc["wifiSsid"] = g_config.wifiSsid;
-    // doc["wifiPassword"] = g_config.wifiPassword;
-    doc["mqttServer"] = g_config.mqttServer;
-    doc["mqttPort"] = g_config.mqttPort;
-    doc["mqttUser"] = g_config.mqttUser;
-    doc["mqttPassword"] = g_config.mqttPassword;
-    doc["version"] = SYSTEM_NAME " " VERSION " (" __DATE__ ")";
-
-    serializeJson(doc, configJson);
-    server.send(200, "application/json", configJson);
-}
-
-void handleSaveSettingsConfig()
-{
-    // Handle form submission and update configuration data
-    if (server.method() == HTTP_POST)
-    {
-        StaticJsonDocument<1024> doc;
-        String jsonString = server.arg("plain");
-        deserializeJson(doc, jsonString);
-
-        // Update the currentConfig struct with the new values from the form submission
-        if (doc.containsKey("wifiSsid"))
-        {
-            strncpy(g_config.wifiSsid, doc["wifiSsid"].as<const char *>(), sizeof(g_config.wifiSsid));
-        }
-        // only save password if not empty
-        if (doc.containsKey("wifiPassword") and strlen(doc["wifiPassword"]) > 0)
-        {
-            strncpy(g_config.wifiPassword, doc["wifiPassword"].as<const char *>(), sizeof(g_config.wifiPassword));
-        }
-        if (doc.containsKey("mqttServer"))
-        {
-            strncpy(g_config.mqttServer, doc["mqttServer"].as<const char *>(), sizeof(g_config.mqttServer));
-        }
-        g_config.mqttPort = doc["mqttPort"] | g_config.mqttPort;
-        if (doc.containsKey("mqttUser"))
-        {
-            strncpy(g_config.mqttUser, doc["mqttUser"].as<const char *>(), sizeof(g_config.mqttUser));
-        }
-        if (doc.containsKey("mqttPassword"))
-        {
-            strncpy(g_config.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(g_config.mqttPassword));
-        }
-        saveSettings(g_config);
-        // publishMqttConfigValues();
-
-        // Send a response to the client
-        String responseMessage = "Configuration updated successfully!";
-        server.send(200, "application/json", "{\"message\":\"" + responseMessage + "\"}");
-        printSettings();
-    }
-}
-
-void handleSaveCodeConfig()
-{
-    // Handle form submission and update configuration data
-    if (server.method() == HTTP_POST)
-    {
-        StaticJsonDocument<1024> doc;
-        String jsonString = server.arg("plain");
-        deserializeJson(doc, jsonString);
-
-        // Update the currentConfig struct with the new values from the form submission
-        // Copy values from the JsonDocument to the Config
-        g_config.codeApartmentDoorBell = doc["codeApartmentDoorBell"] | g_config.codeApartmentDoorBell;
-        g_config.codeEntryDoorBell = doc["codeEntryDoorBell"] | g_config.codeEntryDoorBell;
-        g_config.codeHandsetLiftup = doc["codeHandsetLiftup"] | g_config.codeHandsetLiftup;
-        g_config.codeDoorOpener = doc["codeDoorOpener"] | g_config.codeDoorOpener;
-        g_config.codeApartmentPatternDetect = doc["codeApartmentPatternDetect"] | g_config.codeApartmentPatternDetect;
-        g_config.codeEntryPatternDetect = doc["codeEntryPatternDetect"] | g_config.codeEntryPatternDetect;
-        g_config.codePartyMode = doc["codePartyMode"] | g_config.codePartyMode;
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
-
-        // Send a response to the client
-        String responseMessage = "Configuration updated successfully!";
-        server.send(200, "application/json", "{\"message\":\"" + responseMessage + "\"}");
-    }
-}
-
-void handleMainPage()
-{
-    server.send_P(200, "text/html", PAGE_MAIN);
-}
-
-void handleCodesPage()
-{
-    server.send_P(200, "text/html", PAGE_CODES);
-}
-
-void handleSettingsPage()
-{
-    server.send_P(200, "text/html", PAGE_SETTINGS);
-}
-
 void openDoor()
 {
     delay(50);
-    tcsWriter.write(g_config.codeDoorOpener);
+    tcsWriter.write(g_settings.getCodeSettings().codeDoorOpener);
 }
 
 uint32_t parseValue(const char *data, unsigned int length)
@@ -321,80 +165,100 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
     else if (strcmp(topic, g_mqttView.getEntryBell().getCommandTopic()) == 0)
     {
-        g_commandToSend = g_config.codeEntryDoorBell;
+        g_commandToSend = g_settings.getCodeSettings().codeEntryDoorBell;
         g_shouldSend = true;
     }
     else if (strcmp(topic, g_mqttView.getApartmentBell().getCommandTopic()) == 0)
     {
-        g_commandToSend = g_config.codeApartmentDoorBell;
+        g_commandToSend = g_settings.getCodeSettings().codeApartmentDoorBell;
         g_shouldSend = true;
     }
     else if (strcmp(topic, g_mqttView.getEntryOpener().getCommandTopic()) == 0)
     {
-        g_commandToSend = g_config.codeDoorOpener;
+        g_commandToSend = g_settings.getCodeSettings().codeDoorOpener;
         g_shouldSend = true;
     }
 
     else if (strcmp(topic, g_mqttView.getPartyMode().getCommandTopic()) == 0)
     {
-        g_config.partyMode = strncmp((char *)payload, g_mqttView.getPartyMode().getOnState(), length) == 0;
-        g_led->setBackgroundLight(g_config.partyMode);
+        Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
+        generalSettings.partyMode = strncmp((char *)payload, g_mqttView.getPartyMode().getOnState(), length) == 0;
+        g_settings.setGeneralSettings(generalSettings);
+        g_settings.save();
+
+        g_led->setBackgroundLight(generalSettings.partyMode);
         g_led->blinkAsync(); // force update of led
-        g_mqttView.publishPartyMode(g_config.partyMode);
+        g_mqttView.publishPartyMode(generalSettings.partyMode);
     }
 
     // Save config entries from Homeassistant
     else if (strcmp(topic, g_mqttView.getConfigCodeApartmentDoorBell().getCommandTopic()) == 0)
     {
-        g_config.codeApartmentDoorBell = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codeApartmentDoorBell = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
     else if (strcmp(topic, g_mqttView.getConfigCodeEntryDoorBell().getCommandTopic()) == 0)
     {
-        g_config.codeEntryDoorBell = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codeEntryDoorBell = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
     else if (strcmp(topic, g_mqttView.getConfigCodeHandsetLiftup().getCommandTopic()) == 0)
     {
-        g_config.codeHandsetLiftup = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codeHandsetLiftup = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
     else if (strcmp(topic, g_mqttView.getConfigCodeDoorOpener().getCommandTopic()) == 0)
     {
-        g_config.codeDoorOpener = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codeDoorOpener = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
     else if (strcmp(topic, g_mqttView.getConfigCodeApartmentPatternDetect().getCommandTopic()) == 0)
     {
-        g_config.codeApartmentPatternDetect = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codeApartmentPatternDetect = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
     else if (strcmp(topic, g_mqttView.getConfigCodeEntryPatternDetect().getCommandTopic()) == 0)
     {
-        g_config.codeEntryPatternDetect = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codeEntryPatternDetect = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
     else if (strcmp(topic, g_mqttView.getConfigCodePartyMode().getCommandTopic()) == 0)
     {
-        g_config.codePartyMode = parseValue((char *)payload, length);
-        saveSettings(g_config);
-        g_mqttView.publishConfigValues(g_config);
+        Settings::CodeSettings codeSettings = g_settings.getCodeSettings();
+        codeSettings.codePartyMode = parseValue((char *)payload, length);
+        g_settings.setCodeSettings(codeSettings);
+        g_settings.save();
+        g_mqttView.publishConfigValues(g_settings);
     }
 
     else if (strcmp(topic, g_mqttView.getDiagnosticsResetButton().getCommandTopic()) == 0)
     {
         bool pressed = strncmp((char *)payload, g_mqttView.getDiagnosticsResetButton().getPressState(), length) == 0;
-        g_config.restartCounter = 0;
-        g_config.mqttDisconnectCounter = 0;
-        g_config.wifiDisconnectCounter = 0;
-        saveSettings(g_config);
-        g_mqttView.publishDiagnostics(g_config, g_bssid.c_str());
+        Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
+        generalSettings.restartCounter = 0;
+        generalSettings.mqttDisconnectCounter = 0;
+        generalSettings.wifiDisconnectCounter = 0;
+        g_settings.setGeneralSettings(generalSettings);
+        g_settings.save();
+        g_mqttView.publishDiagnostics(g_settings, g_bssid.c_str());
     }
 
     // publish config when homeassistant comes online and needs the configuration again
@@ -403,7 +267,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     {
         if (strncmp((char *)payload, "online", length) == 0)
         {
-            g_mqttView.publishConfig(g_config);
+            g_mqttView.publishConfig(g_settings);
         }
     }
 }
@@ -415,13 +279,14 @@ void setup()
     esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); // enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);                      // add current thread to WDT watch
 #endif
+    Serial.begin(115200);
 
     g_led->begin();
     // turn on led until boot sequence finished
     g_led->blinkAsync();
 
-    Serial.begin(115200);
-
+    delay(400);
+    log_info("Starting to mount LittleFS");
     if (!LittleFS.begin())
     {
         log_error("Failed to mount file system");
@@ -435,9 +300,12 @@ void setup()
             }
         }
     }
-    loadSettings(g_config);
-    g_config.restartCounter++;
-    saveSettings(g_config);
+    log_info("Finished Mounting");
+    g_settings.begin();
+    Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
+    generalSettings.restartCounter++;
+    g_settings.setGeneralSettings(generalSettings);
+    g_settings.save();
 
     tcsWriter.begin();
     tcsReader.begin();
@@ -452,14 +320,14 @@ void setup()
 
     WiFi.setHostname(composeClientID().c_str());
     WiFi.mode(WIFI_STA);
-    #ifdef ESP32
-        // select the AP with the strongest signal
-        WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
-        WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
-    #endif
+#ifdef ESP32
+    // select the AP with the strongest signal
+    WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+    WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+#endif
 
-    WiFi.begin(wifi_ssid, wifi_pass);
-
+    //WiFi.begin(g_settings.getWiFiSettings().staSsid, g_settings.getWiFiSettings().staPassword);
+    WiFi.begin(DEFAULT_STA_WIFI_SSID, DEFAULT_STA_WIFI_PASS);
 
     log_info("Connecting to wifi...");
     // TODO: really forever? What if we want to go back to autoconnect?
@@ -473,7 +341,7 @@ void setup()
 
     log_info("Wifi connected!");
 
-    log_info("Connected to SSID: %s", wifi_ssid);
+    log_info("Connected to SSID: %s", g_settings.getWiFiSettings().staSsid);
     log_info("IP address: %s", WiFi.localIP().toString().c_str());
     g_bssid = WiFi.BSSIDstr();
 
@@ -482,30 +350,10 @@ void setup()
     g_mqttView.getDevice().setConfigurationUrl(configUrl);
 
     client.setBufferSize(1024);
-    client.setServer(mqtt_server, mqtt_port);
+    client.setServer(MQTT_SERVER, MQTT_PORT);
     client.setCallback(callback);
-    server.on("/", handleMainPage);
-    server.on("/codes", handleCodesPage);
-    server.on("/settings", handleSettingsPage);
-    server.on("/setCodes", handleSaveCodeConfig);
-    server.on("/getCodes", handleCodeConfig);
-    server.on("/getSettings", handleSettingsConfig);
-    server.on("/setSettings", handleSaveSettingsConfig);
     server.begin(); // Start the server
     log_info("Server listening");
-
-    // Port defaults to 8266
-    // ArduinoOTA.setPort(8266);
-
-    // Hostname defaults to esp8266-[ChipID]
-    // ArduinoOTA.setHostname("myesp8266");
-
-    // No authentication by default
-    // ArduinoOTA.setPassword("admin");
-
-    // Password can be set with it's md5 value as well
-    // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-    // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
 
     ArduinoOTA.onStart([]()
                        {
@@ -522,10 +370,10 @@ void setup()
                      { log_info("End"); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
                           {
-        // reset watchdog during update
-        #ifdef ESP32
+// reset watchdog during update
+#ifdef ESP32
             esp_task_wdt_reset();
-        #endif
+#endif
         log_info("Progress: %u%%\r", (progress / (total / 100))); });
     ArduinoOTA.onError([](ota_error_t error)
                        {
@@ -558,8 +406,11 @@ void loop()
         if (g_wifiConnected)
         {
             // we switched to disconnected
-            g_config.wifiDisconnectCounter++;
-            saveSettings(g_config);
+
+            Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
+            generalSettings.wifiDisconnectCounter++;
+            g_settings.setGeneralSettings(generalSettings);
+            g_settings.save();
         }
         if (millis() - g_lastWifiConnect > WIFI_DISCONNECT_FORCED_RESTART_S * 1000)
         {
@@ -583,8 +434,10 @@ void loop()
         if (g_mqttConnected)
         {
             // we switched to disconnected
-            g_config.mqttDisconnectCounter++;
-            saveSettings(g_config);
+            Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
+            generalSettings.mqttDisconnectCounter++;
+            g_settings.setGeneralSettings(generalSettings);
+            g_settings.save();
         }
         g_mqttConnected = false;
         delay(1000);
@@ -594,7 +447,7 @@ void loop()
     {
         // now we are successfully reconnected and publish our counters
         g_bssid = WiFi.BSSIDstr();
-        g_mqttView.publishDiagnostics(g_config, g_bssid.c_str());
+        g_mqttView.publishDiagnostics(g_settings, g_bssid.c_str());
     }
     g_mqttConnected = true;
 
@@ -616,28 +469,28 @@ void loop()
         g_led->blinkAsync();
         uint32_t cmd = tcsReader.read();
 
-        if (cmd == g_config.codeApartmentDoorBell)
+        if (cmd == g_settings.getCodeSettings().codeApartmentDoorBell)
         {
             g_mqttView.publishApartmentBellTrigger();
         }
 
-        if (cmd == g_config.codeEntryDoorBell)
+        if (cmd == g_settings.getCodeSettings().codeEntryDoorBell)
         {
             g_mqttView.publishEntryBellTrigger();
         }
 
-        if (cmd == g_config.codeDoorOpener)
+        if (cmd == g_settings.getCodeSettings().codeDoorOpener)
         {
             g_mqttView.publishEntryOpenerTrigger();
         }
 
-        if (g_config.partyMode && cmd == g_config.codePartyMode)
+        if (g_settings.getGeneralSettings().partyMode && cmd == g_settings.getCodeSettings().codePartyMode)
         {
             // we have a party, let everybody in
             openDoor();
         }
 
-        if (cmd == g_config.codeHandsetLiftup)
+        if (cmd == g_settings.getCodeSettings().codeHandsetLiftup)
         {
             if (millis() - g_tsLastHandsetLiftup < 2000)
             {
@@ -651,15 +504,18 @@ void loop()
 
             if (g_handsetLiftup == 3)
             {
-                g_config.partyMode = !g_config.partyMode;
+                Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
+                generalSettings.partyMode = !generalSettings.partyMode;
+                g_settings.setGeneralSettings(generalSettings);
+                g_settings.save();
                 g_handsetLiftup = 0;
-                g_led->setBackgroundLight(g_config.partyMode);
+                g_led->setBackgroundLight(generalSettings.partyMode);
                 g_led->blinkAsync();
-                g_mqttView.publishPartyMode(g_config.partyMode);
+                g_mqttView.publishPartyMode(generalSettings.partyMode);
             }
         }
 
-        if (cmd == g_config.codeEntryPatternDetect)
+        if (cmd == g_settings.getCodeSettings().codeEntryPatternDetect)
         {
             if (patternRecognitionEntry.trigger())
             {
@@ -669,7 +525,7 @@ void loop()
             }
         }
 
-        if (cmd == g_config.codeApartmentPatternDetect)
+        if (cmd == g_settings.getCodeSettings().codeApartmentPatternDetect)
         {
             if (patternRecognitionApartment.trigger())
             {

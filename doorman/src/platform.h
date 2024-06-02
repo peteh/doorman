@@ -14,3 +14,10 @@
 #define PIN_BUS_WRITE 13
 #define SYSTEM_NAME "ESP32 Doorman"
 #endif
+
+#ifdef ARDUINO_LOLIN_S3_MINI
+#define SUPPORT_RGB_LED 1
+#define RGB_LED_PIN 47
+#endif
+
+const char DEFAULT_AP_PASSWORD[] = "doormanadmin";

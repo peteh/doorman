@@ -50,7 +50,7 @@
         // Function to fetch and populate the configuration data
         function populateConfig() {
             // Fetch the current configuration from the ESP8266
-            fetch('/getSettings', {
+            fetch('/api/v1/device/settings', {
                 method: 'GET',
             })
                 .then(response => response.json())
@@ -90,7 +90,7 @@
 
 
             // Send the configuration data to the server (ESP8266)
-            fetch('/setSettings', {
+            fetch('/api/v1/device/settings', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

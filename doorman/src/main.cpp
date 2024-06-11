@@ -13,7 +13,7 @@
 #include <esp_task_wdt.h>
 #endif
 
-#include <WiFiUdp.h>
+//#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
 #include <esplog.h>

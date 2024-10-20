@@ -301,6 +301,18 @@ void openDoor()
     tcsWriter.write(g_config.codeDoorOpener);
 }
 
+void sendDiscoveryResponse()
+{
+    delay(50);
+
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    uint32_t response_command = 0x7F000000;
+    response_command |= (mac[3] << 16) | (mac[4] << 8) | mac[5];    
+    tcsWriter.write(response_command);
+}
+
 uint32_t parseValue(const char *data, unsigned int length)
 {
     // TODO length check
@@ -620,6 +632,12 @@ void loop()
     {
         g_led->blinkAsync();
         uint32_t cmd = tcsReader.read();
+
+        // Custom protocol: Doorman discovery request
+        if (cmd == 0x7FFF)
+        {
+            sendDiscoveryResponse();
+        }
 
         if (cmd == g_config.codeApartmentDoorBell)
         {

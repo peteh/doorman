@@ -56,6 +56,11 @@ WebServer server(80);
 #define RGB_LED_PIN 47
 #endif
 
+#ifdef DOORMAN_S3
+#define SUPPORT_RGB_LED 1
+#define RGB_LED_PIN 2
+#endif
+
 #ifdef SUPPORT_RGB_LED
 #include "led_rgb.h"
 Led *g_led = new LedRGB(RGB_LED_PIN);

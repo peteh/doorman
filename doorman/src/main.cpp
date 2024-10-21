@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <DNSServer.h>
+#include <random>
+#include <chrono>
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -618,6 +620,16 @@ void loop()
     client.loop();
     if (g_shouldSend)
     {
+        std::srand(std::time(0));
+
+        delay(std::rand() % 101 + 50);
+
+        uint32_t msNow = millis();
+        while((msNow - tcsReader.lastBitTimestamp()) < 50)
+        {
+            delay(std::rand() % 101 + 50);
+        }
+
         uint32_t cmd = g_commandToSend;
         g_shouldSend = false;
         log_info("Sending: %08x", cmd);

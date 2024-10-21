@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <DNSServer.h>
+#include <random>
+#include <chrono>
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -71,6 +73,9 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
+
+const uint32_t g_codeDiscoveryRequest = 0x7FFF;
+const uint8_t g_tcsReaderSendWaitDuration = 50;
 
 Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false};
 
@@ -299,6 +304,18 @@ void openDoor()
 {
     delay(50);
     tcsWriter.write(g_config.codeDoorOpener);
+}
+
+void sendDiscoveryResponse()
+{
+    delay(50);
+
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    uint32_t response_command = 0x7F000000;
+    response_command |= (mac[3] << 16) | (mac[4] << 8) | mac[5];    
+    tcsWriter.write(response_command);
 }
 
 uint32_t parseValue(const char *data, unsigned int length)
@@ -606,6 +623,16 @@ void loop()
     client.loop();
     if (g_shouldSend)
     {
+        std::srand(std::time(0));
+
+        delay(std::rand() % 101 + 50); // 50-150
+
+        uint32_t msNow = millis();
+        while((msNow - tcsReader.lastBitTimestamp()) < g_tcsReaderSendWaitDuration)
+        {
+            delay(std::rand() % 101 + 50); // 50-150
+        }
+
         uint32_t cmd = g_commandToSend;
         g_shouldSend = false;
         log_info("Sending: %08x", cmd);
@@ -620,6 +647,12 @@ void loop()
     {
         g_led->blinkAsync();
         uint32_t cmd = tcsReader.read();
+
+        // Custom protocol: Doorman discovery request
+        if (cmd == g_codeDiscoveryRequest)
+        {
+            sendDiscoveryResponse();
+        }
 
         if (cmd == g_config.codeApartmentDoorBell)
         {

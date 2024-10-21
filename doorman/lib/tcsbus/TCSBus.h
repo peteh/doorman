@@ -48,6 +48,13 @@ public:
     uint32_t read();
 
     /**
+     * @brief The timestamp of the last incoming bit
+     *
+     * @return uint32_t timestamp of last incoming bit
+     */
+    uint32_t lastBitTimestamp();
+
+    /**
      * @brief Injects a command into the reader that can be read from it directly 
      * without being read from the bus.
      *
@@ -62,6 +69,7 @@ private:
      */
     static void IRAM_ATTR analyzeCMD();
 
+    static volatile uint32_t s_last_change;
     static volatile uint32_t s_cmd;
     static volatile uint8_t s_cmdLength;
     static volatile bool s_cmdReady;

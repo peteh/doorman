@@ -74,6 +74,9 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
+const uint32_t g_codeDiscoveryRequest = 0x7FFF;
+const uint8_t g_tcsReaderSendWaitDuration = 50;
+
 Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false};
 
 TriggerPatternRecognition patternRecognitionEntry;
@@ -622,12 +625,12 @@ void loop()
     {
         std::srand(std::time(0));
 
-        delay(std::rand() % 101 + 50);
+        delay(std::rand() % 101 + 50); // 50-150
 
         uint32_t msNow = millis();
-        while((msNow - tcsReader.lastBitTimestamp()) < 50)
+        while((msNow - tcsReader.lastBitTimestamp()) < g_tcsReaderSendWaitDuration)
         {
-            delay(std::rand() % 101 + 50);
+            delay(std::rand() % 101 + 50); // 50-150
         }
 
         uint32_t cmd = g_commandToSend;
@@ -646,7 +649,7 @@ void loop()
         uint32_t cmd = tcsReader.read();
 
         // Custom protocol: Doorman discovery request
-        if (cmd == 0x7FFF)
+        if (cmd == g_codeDiscoveryRequest)
         {
             sendDiscoveryResponse();
         }

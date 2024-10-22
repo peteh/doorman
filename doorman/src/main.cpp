@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <DNSServer.h>
+#include <random>
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -71,6 +72,9 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
+
+const uint32_t CODE_DISCOVERY_REQUEST = 0x7FFF;
+const uint8_t TCS_WRITER_SEND_WAIT_DURATION = 50;
 
 Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false};
 
@@ -618,6 +622,15 @@ void loop()
     client.loop();
     if (g_shouldSend)
     {
+        uint32_t msNow = millis();
+        std::srand(msNow);
+
+        delay(std::rand() % 101 + 50); // 50-150
+        while((msNow - tcsReader.lastBitTimestamp()) < TCS_WRITER_SEND_WAIT_DURATION)
+        {
+            delay(std::rand() % 101 + 50); // 50-150
+        }
+
         uint32_t cmd = g_commandToSend;
         g_shouldSend = false;
         log_info("Sending: %08x", cmd);
@@ -634,7 +647,7 @@ void loop()
         uint32_t cmd = tcsReader.read();
 
         // Custom protocol: Doorman discovery request
-        if (cmd == 0x7FFF)
+        if (cmd == CODE_DISCOVERY_REQUEST)
         {
             sendDiscoveryResponse();
         }

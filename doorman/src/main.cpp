@@ -302,7 +302,9 @@ void handleSettingsPage()
 void openDoor()
 {
     delay(50);
-    tcsWriter.write(g_config.codeDoorOpener);
+
+    g_commandToSend = g_config.codeDoorOpener;
+    g_shouldSend = true;
 }
 
 void sendDiscoveryResponse()
@@ -313,8 +315,10 @@ void sendDiscoveryResponse()
     WiFi.macAddress(mac);
 
     uint32_t response_command = 0x7F000000;
-    response_command |= (mac[3] << 16) | (mac[4] << 8) | mac[5];    
-    tcsWriter.write(response_command);
+    response_command |= (mac[3] << 16) | (mac[4] << 8) | mac[5];
+
+    g_commandToSend = response_command;
+    g_shouldSend = true;
 }
 
 uint32_t parseValue(const char *data, unsigned int length)

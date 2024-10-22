@@ -23,6 +23,7 @@
 #define CONFIG_KEY_RESTART_COUNTER "restartCounter"
 #define CONFIG_KEY_WIFI_DISCONNECT_COUNTER "wifiDisconnectCounter"
 #define CONFIG_KEY_MQTT_DISCONNECT_COUNTER "mqttDisconnectCounter"
+#define CONFIG_KEY_FORCE_AP_NEXT_BOOT "forceAPnextBoot"
 #define CONFIG_KEY_PARTY_MODE "partyMode"
 
 #define CONFIG_KEY_MQTT_SERVER "mqttServer"

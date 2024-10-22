@@ -21,3 +21,4 @@
 #endif
 
 const char DEFAULT_AP_PASSWORD[] = "doormanadmin";
+const long WIFI_CONNECTION_FAIL_TIMEOUT_S = 60;

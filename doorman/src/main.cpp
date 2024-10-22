@@ -330,12 +330,20 @@ void setup()
 
     log_info("Connecting to wifi...");
     // TODO: really forever? What if we want to go back to autoconnect?
+    long startTime = millis();
     while (!connectToWifi())
     {
+        if (millis() - startTime > WIFI_CONNECTION_FAIL_TIMEOUT_S*1000)
+        {
+            // we failed to connect to the wifi, force reboot in AP settings
+            Settings::GeneralSettings settings = g_settings.getGeneralSettings();
+            settings.forceAPnextBoot = true;
+            g_settings.setGeneralSettings(settings);
+            g_settings.save();
+            ESP.restart();
+        }
         log_debug(".");
         delay(500);
-
-        // TODO: force AP mode once and disable mqtt
     }
     g_wifiConnected = true;
     g_lastWifiConnect = millis();

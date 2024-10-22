@@ -61,6 +61,7 @@ public:
         uint32_t restartCounter;
         uint32_t wifiDisconnectCounter;
         uint32_t mqttDisconnectCounter;
+        bool forceAPnextBoot;
         bool partyMode;
     };
 
@@ -93,6 +94,7 @@ private:
         0,
         0,
         0,
+        false,
         false};
 
 private:

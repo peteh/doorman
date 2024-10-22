@@ -349,6 +349,7 @@ void setup()
     WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
 #endif
 
+    // TODO: boot in ap mode if apnextboot is set
     //WiFi.begin(g_settings.getWiFiSettings().staSsid, g_settings.getWiFiSettings().staPassword);
     WiFi.begin(DEFAULT_STA_WIFI_SSID, DEFAULT_STA_WIFI_PASS);
 

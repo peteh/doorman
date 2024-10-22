@@ -34,9 +34,7 @@ The codes that are specific to your flat are the long ones (without 0000 prefix)
 
 AzonInc created a PCB with the doorman circuits and 3D printable housing. The project supports integration via ESPhome.
 
-<https://github.com/AzonInc/Doorman>
-
-It's currently a work in progress and I haven't added official support to the platformio project yet.
+You can find more information [here](https://doorman.azon.ai) or in the [repository](<https://github.com/AzonInc/Doorman>).
 
 ## Wiring
 

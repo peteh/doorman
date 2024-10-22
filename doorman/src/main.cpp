@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <DNSServer.h>
+#include <random>
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -44,6 +45,11 @@ MqttView g_mqttView(&client);
 Settings g_settings;
 ApiServer server(&g_settings);
 
+#ifdef DOORMAN_S3
+#define SUPPORT_RGB_LED 1
+#define RGB_LED_PIN 2
+#endif
+
 #ifdef SUPPORT_RGB_LED
 #include "led_rgb.h"
 Led *g_led = new LedRGB(RGB_LED_PIN);
@@ -54,6 +60,9 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
+
+const uint32_t CODE_DISCOVERY_REQUEST = 0x7FFF;
+const uint8_t TCS_WRITER_SEND_WAIT_DURATION = 50;
 
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
@@ -135,7 +144,22 @@ bool connectToWifi()
 void openDoor()
 {
     delay(50);
-    tcsWriter.write(g_settings.getCodeSettings().codeDoorOpener);
+    g_commandToSend = g_settings.getCodeSettings().codeDoorOpener;
+    g_shouldSend = true;
+}
+
+void sendDiscoveryResponse()
+{
+    delay(50);
+
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    uint32_t response_command = 0x7F000000;
+    response_command |= (mac[3] << 16) | (mac[4] << 8) | mac[5];
+
+    g_commandToSend = response_command;
+    g_shouldSend = true;
 }
 
 uint32_t parseValue(const char *data, unsigned int length)
@@ -462,6 +486,15 @@ void loop()
     client.loop();
     if (g_shouldSend)
     {
+        uint32_t msNow = millis();
+        std::srand(msNow);
+
+        delay(std::rand() % 101 + 50); // 50-150
+        while((msNow - tcsReader.lastBitTimestamp()) < TCS_WRITER_SEND_WAIT_DURATION)
+        {
+            delay(std::rand() % 101 + 50); // 50-150
+        }
+
         uint32_t cmd = g_commandToSend;
         g_shouldSend = false;
         log_info("Sending: %08x", cmd);
@@ -476,6 +509,12 @@ void loop()
     {
         g_led->blinkAsync();
         uint32_t cmd = tcsReader.read();
+
+        // Custom protocol: Doorman discovery request
+        if (cmd == CODE_DISCOVERY_REQUEST)
+        {
+            sendDiscoveryResponse();
+        }
 
         if (cmd == g_settings.getCodeSettings().codeApartmentDoorBell)
         {

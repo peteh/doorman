@@ -1,5 +1,6 @@
 #include "TCSBus.h"
 
+volatile uint32_t TCSBusReader::s_last_change = 0;
 volatile uint32_t TCSBusReader::s_cmd = 0;
 volatile uint8_t TCSBusReader::s_cmdLength = 0;
 volatile bool TCSBusReader::s_cmdReady = false;
@@ -37,6 +38,11 @@ void TCSBusReader::disable()
 bool TCSBusReader::hasCommand()
 {
     return s_cmdReady;
+}
+
+uint32_t TCSBusReader::lastBitTimestamp()
+{
+    return s_last_change;
 }
 
 uint32_t TCSBusReader::read()
@@ -152,6 +158,10 @@ void IRAM_ATTR TCSBusReader::analyzeCMD()
     {
         curPos = 0;
     }
+
+    // Save last bit timestamp
+    s_last_change = millis();
+
     if (cmdIntReady)
     {
         cmdIntReady = 0;

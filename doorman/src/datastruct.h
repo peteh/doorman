@@ -20,6 +20,7 @@ struct Config
     char mqttUser[200];
     char mqttPassword[200];
     bool partyMode;
+    bool relayState;
 };
 
 #define CONFIG_FILENAME "/config.txt"

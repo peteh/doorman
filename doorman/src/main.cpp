@@ -59,6 +59,7 @@ WebServer server(80);
 #ifdef DOORMAN_S3
 #define SUPPORT_RGB_LED 1
 #define RGB_LED_PIN 2
+#define RELAY_PIN 42
 #endif
 
 #ifdef SUPPORT_RGB_LED
@@ -72,7 +73,7 @@ Led *g_led = new LedBuiltin(LED_BUILTIN);
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
 
-Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false};
+Config g_config = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 1883, false, false};
 
 TriggerPatternRecognition patternRecognitionEntry;
 TriggerPatternRecognition patternRecognitionApartment;
@@ -125,6 +126,10 @@ bool connectToMqtt()
     client.subscribe(g_mqttView.getEntryOpener().getCommandTopic(), 1);
 
     client.subscribe(g_mqttView.getPartyMode().getCommandTopic(), 1);
+
+    #ifdef DOORMAN_S3
+    client.subscribe(g_mqttView.getRelayState().getCommandTopic(), 1);
+    #endif
 
     client.subscribe(g_mqttView.getBus().getCommandTopic(), 1);
 
@@ -347,6 +352,14 @@ void callback(char *topic, byte *payload, unsigned int length)
         g_led->blinkAsync(); // force update of led
         g_mqttView.publishPartyMode(g_config.partyMode);
     }
+    #ifdef DOORMAN_S3
+    else if (strcmp(topic, g_mqttView.getRelayState().getCommandTopic()) == 0)
+    {
+        g_config.relayState = strncmp((char *)payload, g_mqttView.getRelayState().getOnState(), length) == 0;
+        digitalWrite(RELAY_PIN, g_config.relayState ? HIGH : LOW);
+        g_mqttView.publishRelayState(g_config.relayState);
+    }
+    #endif
 
     // Save config entries from Homeassistant
     else if (strcmp(topic, g_mqttView.getConfigCodeApartmentDoorBell().getCommandTopic()) == 0)
@@ -417,13 +430,21 @@ void setup()
 {
 #ifdef ESP32
     // initialize watchdog
-    esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); // enable panic so ESP32 restarts
+    esp_task_wdt_config_t wdt_config = {
+        .timeout_ms = WATCHDOG_TIMEOUT_S * 1000,
+        .trigger_panic = true             // Enable panic
+    }; 
+    esp_task_wdt_init(&wdt_config); // enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);                      // add current thread to WDT watch
 #endif
 
     g_led->begin();
     // turn on led until boot sequence finished
     g_led->blinkAsync();
+
+    #ifdef DOORMAN_S3
+    pinMode(RELAY_PIN, OUTPUT);
+    #endif
 
     Serial.begin(115200);
 

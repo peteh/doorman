@@ -36,6 +36,9 @@ public:
           m_entryOpener(&m_device, "entryopener", "Door Opener"),
 
           m_partyMode(&m_device, "partymode", "Party Mode"),
+          #ifdef DOORMAN_S3
+          m_relayState(&m_device, "relaystate", "Relay"),
+          #endif
 
           m_bus(&m_device, "bus", "TCS Bus"),
 
@@ -62,6 +65,10 @@ public:
         m_bus.setPattern("[a-fA-F0-9]*");
         m_bus.setMaxLetters(8);
         m_bus.setIcon("mdi:console-network");
+
+        #ifdef DOORMAN_S3
+        m_relayState.setIcon("mdi:electric-switch");
+        #endif
 
         m_partyMode.setIcon("mdi:door-closed-lock");
         m_entryOpener.setIcon("mdi:door-open");
@@ -147,6 +154,13 @@ public:
     {
         return m_partyMode;
     }
+
+    #ifdef DOORMAN_S3
+    const MqttSwitch &getRelayState() const
+    {
+        return m_relayState;
+    }
+    #endif
 
     const MqttText &getBus() const
     {
@@ -240,6 +254,10 @@ public:
 
         publishConfig(m_partyMode);
 
+        #ifdef DOORMAN_S3
+        publishConfig(m_relayState);
+        #endif
+
         publishConfig(m_bus);
 
         publishConfig(m_configCodeApartmentDoorBell);
@@ -269,6 +287,10 @@ public:
         publishMqttState(m_bus, "");
         publishPartyMode(config.partyMode);
 
+        #ifdef DOORMAN_S3
+        publishRelayState(config.relayState);
+        #endif
+
         publishConfigValues(config);
 
         publishDiagnostics(config, "");
@@ -297,6 +319,13 @@ public:
     {
         publishMqttState(m_partyMode, partyMode ? m_partyMode.getOnState() : m_partyMode.getOffState());
     }
+
+    #ifdef DOORMAN_S3
+    void publishRelayState(bool relayState)
+    {
+        publishMqttState(m_relayState, relayState ? m_relayState.getOnState() : m_relayState.getOffState());
+    }
+    #endif
 
     void publishEntryOpenerTrigger()
     {
@@ -345,6 +374,10 @@ private:
     MqttSwitch m_entryOpener;
 
     MqttSwitch m_partyMode;
+
+    #ifdef DOORMAN_S3
+    MqttSwitch m_relayState;
+    #endif
 
     MqttText m_bus;
 

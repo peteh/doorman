@@ -3,8 +3,8 @@
 #include <MqttDevice.h>
 #include <esplog.h>
 #include "platform.h"
-#include "datastruct.h"
 #include "utils.h"
+#include "settings.h"
 
 class MqttView
 {
@@ -229,7 +229,7 @@ public:
         publishMqttState(entity, entity.getOffState());
     }
 
-    void publishConfig(Config &config)
+    void publishConfig(Settings &settings)
     {
         publishConfig(m_apartmentBell);
         publishConfig(m_apartmentBellPattern);
@@ -267,29 +267,29 @@ public:
         publishMqttState(m_entryBellPattern, m_entryBellPattern.getOffState());
         publishMqttState(m_entryOpener, m_entryOpener.getOffState());
         publishMqttState(m_bus, "");
-        publishPartyMode(config.partyMode);
+        publishPartyMode(settings.getGeneralSettings().partyMode);
 
-        publishConfigValues(config);
+        publishConfigValues(settings);
 
-        publishDiagnostics(config, "");
+        publishDiagnostics(settings, "");
     }
 
-    void publishConfigValues(Config &config)
+    void publishConfigValues(Settings &settings)
     {
-        publishMqttConfigState(m_configCodeApartmentDoorBell, config.codeApartmentDoorBell);
-        publishMqttConfigState(m_configCodeEntryDoorBell, config.codeEntryDoorBell);
-        publishMqttConfigState(m_configCodeHandsetLiftup, config.codeHandsetLiftup);
-        publishMqttConfigState(m_configCodeDoorOpener, config.codeDoorOpener);
-        publishMqttConfigState(m_configCodeApartmentPatternDetect, config.codeApartmentPatternDetect);
-        publishMqttConfigState(m_configCodeEntryPatternDetect, config.codeEntryPatternDetect);
-        publishMqttConfigState(m_configCodePartyMode, config.codePartyMode);
+        publishMqttConfigState(m_configCodeApartmentDoorBell, settings.getCodeSettings().codeApartmentDoorBell);
+        publishMqttConfigState(m_configCodeEntryDoorBell, settings.getCodeSettings().codeEntryDoorBell);
+        publishMqttConfigState(m_configCodeHandsetLiftup, settings.getCodeSettings().codeHandsetLiftup);
+        publishMqttConfigState(m_configCodeDoorOpener, settings.getCodeSettings().codeDoorOpener);
+        publishMqttConfigState(m_configCodeApartmentPatternDetect, settings.getCodeSettings().codeApartmentPatternDetect);
+        publishMqttConfigState(m_configCodeEntryPatternDetect, settings.getCodeSettings().codeEntryPatternDetect);
+        publishMqttConfigState(m_configCodePartyMode, settings.getCodeSettings().codePartyMode);
     }
 
-    void publishDiagnostics(Config &g_config, const char* bssid)
+    void publishDiagnostics(Settings &settings, const char* bssid)
     {
-        publishMqttCounterState(m_diagnosticsRestartCounter, g_config.restartCounter);
-        publishMqttCounterState(m_diagnosticsWifiDisconnectCounter, g_config.wifiDisconnectCounter);
-        publishMqttCounterState(m_diagnosticsMqttDisconnectCounter, g_config.mqttDisconnectCounter);
+        publishMqttCounterState(m_diagnosticsRestartCounter, settings.getGeneralSettings().restartCounter);
+        publishMqttCounterState(m_diagnosticsWifiDisconnectCounter, settings.getGeneralSettings().wifiDisconnectCounter);
+        publishMqttCounterState(m_diagnosticsMqttDisconnectCounter, settings.getGeneralSettings().mqttDisconnectCounter);
         publishMqttState(m_diagnosticsBssid, bssid);
     }
 

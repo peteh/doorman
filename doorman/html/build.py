@@ -12,7 +12,7 @@ for tpl_file in tpl_files:
     file.close()
 #print(tpl)
     
-with open('../src/html.h', 'w') as f:
+with open('../src/html.h', 'w+') as f:
     f.write("#include<Arduino.h>\n")
     for htmlFile in htmlFiles:
         file = open(htmlFile, mode='r')

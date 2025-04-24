@@ -119,25 +119,25 @@ void ApiServer::handleDeviceSettingsSave()
         Settings::MqttSettings mqttSettings = m_settings->getMqttSettings();
 
         // Update the currentConfig struct with the new values from the form submission
-        if (doc.containsKey("wifiSsid"))
+        if (doc["wifiSsid"].is<JsonVariant>())
         {
             strncpy(wifiSettings.staSsid, doc["wifiSsid"].as<const char *>(), sizeof(wifiSettings.staSsid));
         }
         // only save password if not empty
-        if (doc.containsKey("wifiPassword") and strlen(doc["wifiPassword"]) > 0)
+        if (doc["wifiPassword"].is<JsonVariant>() && strlen(doc["wifiPassword"]) > 0)
         {
             strncpy(wifiSettings.staPassword, doc["wifiPassword"].as<const char *>(), sizeof(wifiSettings.staPassword));
         }
-        if (doc.containsKey("mqttServer"))
+        if (doc["mqttServer"].is<JsonVariant>())
         {
             strncpy(mqttSettings.mqttServer, doc["mqttServer"].as<const char *>(), sizeof(mqttSettings.mqttServer));
         }
         mqttSettings.mqttPort = doc["mqttPort"] | mqttSettings.mqttPort;
-        if (doc.containsKey("mqttUser"))
+        if (doc["mqttUser"].is<JsonVariant>())
         {
             strncpy(mqttSettings.mqttUser, doc["mqttUser"].as<const char *>(), sizeof(mqttSettings.mqttUser));
         }
-        if (doc.containsKey("mqttPassword"))
+        if (doc["mqttPassword"].is<JsonVariant>())
         {
             strncpy(mqttSettings.mqttPassword, doc["mqttPassword"].as<const char *>(), sizeof(mqttSettings.mqttPassword));
         }

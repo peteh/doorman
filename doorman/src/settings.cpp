@@ -41,27 +41,26 @@ void Settings::loadWifiSettings(JsonDocument &doc)
     strncpy(m_wifiSettings.staSsid, DEFAULT_STA_WIFI_SSID, sizeof(m_wifiSettings.staSsid) - 1);
     strncpy(m_wifiSettings.staPassword, DEFAULT_STA_WIFI_PASS, sizeof(m_wifiSettings.staPassword) - 1);
 
-    if (doc.containsKey(CONFIG_KEY_WIFI_STA_SSID))
+    if (doc[CONFIG_KEY_WIFI_STA_SSID].is<JsonVariant>())
     {
         strncpy(m_wifiSettings.staSsid, doc[CONFIG_KEY_WIFI_STA_SSID].as<const char *>(), sizeof(m_wifiSettings.staSsid) - 1);
     }
-
-    if (doc.containsKey(CONFIG_KEY_WIFI_STA_PASSWORD))
+    if (doc[CONFIG_KEY_WIFI_STA_PASSWORD].is<JsonVariant>())
     {
         strncpy(m_wifiSettings.staPassword, doc[CONFIG_KEY_WIFI_STA_PASSWORD].as<const char *>(), sizeof(m_wifiSettings.staPassword) - 1);
     }
 
-    if (doc.containsKey(CONFIG_KEY_WIFI_AP_SSID))
+    if (doc[CONFIG_KEY_WIFI_AP_SSID].is<JsonVariant>())
     {
         strncpy(m_wifiSettings.apSsid, doc[CONFIG_KEY_WIFI_AP_SSID].as<const char *>(), sizeof(m_wifiSettings.apSsid) - 1);
     }
 
-    if (doc.containsKey(CONFIG_KEY_WIFI_AP_PASSWORD))
+    if (doc[CONFIG_KEY_WIFI_AP_PASSWORD].is<JsonVariant>())
     {
         strncpy(m_wifiSettings.apPassword, doc[CONFIG_KEY_WIFI_AP_PASSWORD].as<const char *>(), sizeof(m_wifiSettings.apPassword) - 1);
     }
 
-    if (doc.containsKey(CONFIG_KEY_WIFI_MODE))
+    if (doc[CONFIG_KEY_WIFI_MODE].is<JsonVariant>())
     {
         char buffer[20];
         strncpy(buffer, doc[CONFIG_KEY_WIFI_MODE].as<const char *>(), sizeof(buffer) - 1);
@@ -85,16 +84,16 @@ void Settings::loadWifiSettings(JsonDocument &doc)
 
 void Settings::loadMqttSettings(JsonDocument &doc)
 {
-    if (doc.containsKey(CONFIG_KEY_MQTT_SERVER))
+    if (doc[CONFIG_KEY_MQTT_SERVER].is<JsonVariant>())
     {
         strncpy(m_mqttSettings.mqttServer, doc[CONFIG_KEY_MQTT_SERVER].as<const char *>(), sizeof(m_mqttSettings.mqttServer));
     }
     m_mqttSettings.mqttPort = doc[CONFIG_KEY_MQTT_PORT] | m_mqttSettings.mqttPort;
-    if (doc.containsKey(CONFIG_KEY_MQTT_USER))
+    if (doc[CONFIG_KEY_MQTT_USER].is<JsonVariant>())
     {
         strncpy(m_mqttSettings.mqttUser, doc[CONFIG_KEY_MQTT_USER].as<const char *>(), sizeof(m_mqttSettings.mqttUser));
     }
-    if (doc.containsKey(CONFIG_KEY_MQTT_PASSWORD))
+    if (doc[CONFIG_KEY_MQTT_PASSWORD].is<JsonVariant>())
     {
         strncpy(m_mqttSettings.mqttPassword, doc[CONFIG_KEY_MQTT_PASSWORD].as<const char *>(), sizeof(m_mqttSettings.mqttPassword));
     }

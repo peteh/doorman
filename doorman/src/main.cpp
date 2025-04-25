@@ -34,6 +34,7 @@
 #include "config.h"
 #include "html.h"
 #include "mqttview.h"
+#include "outputswitch.h"
 
 const uint WATCHDOG_TIMEOUT_S = 30;
 const uint WIFI_DISCONNECT_FORCED_RESTART_S = 60;
@@ -45,11 +46,6 @@ MqttView g_mqttView(&client);
 Settings g_settings;
 ApiServer server(&g_settings);
 
-#ifdef DOORMAN_S3
-#define SUPPORT_RGB_LED 1
-#define RGB_LED_PIN 2
-#endif
-
 #ifdef SUPPORT_RGB_LED
 #include "led_rgb.h"
 Led *g_led = new LedRGB(RGB_LED_PIN);
@@ -57,6 +53,8 @@ Led *g_led = new LedRGB(RGB_LED_PIN);
 #include "led_builtin.h"
 Led *g_led = new LedBuiltin(LED_BUILTIN);
 #endif
+
+OutputSwitch g_relay = OutputSwitch(PIN_RELAY);
 
 const char *HOMEASSISTANT_STATUS_TOPIC = "homeassistant/status";
 const char *HOMEASSISTANT_STATUS_TOPIC_ALT = "ha/status";
@@ -200,7 +198,13 @@ void callback(char *topic, byte *payload, unsigned int length)
         g_commandToSend = g_settings.getCodeSettings().codeDoorOpener;
         g_shouldSend = true;
     }
+    else if (strcmp(topic, g_mqttView.getRelay().getCommandTopic()) == 0)
+    {
+        bool enabled = strncmp((char *)payload, g_mqttView.getPartyMode().getOnState(), length) == 0;
+        g_relay.switchto(enabled);
+        g_mqttView.publishMqttState(g_mqttView.getRelay(), enabled ? g_mqttView.getRelay().getOnState() : g_mqttView.getRelay().getOffState());
 
+    }
     else if (strcmp(topic, g_mqttView.getPartyMode().getCommandTopic()) == 0)
     {
         Settings::GeneralSettings generalSettings = g_settings.getGeneralSettings();
@@ -332,6 +336,7 @@ void setup()
 
     tcsWriter.begin();
     tcsReader.begin();
+    g_relay.begin();
 
     // configure pattern detection
     patternRecognitionEntry.addStep(1000);
@@ -485,6 +490,8 @@ void loop()
     g_mqttConnected = true;
 
     client.loop();
+    g_relay.loop();
+
     if (g_shouldSend)
     {
         uint32_t msNow = millis();

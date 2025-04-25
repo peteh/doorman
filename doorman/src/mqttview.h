@@ -34,6 +34,7 @@ public:
           m_entryBell(&m_device, "entrybell", "Entry Bell"),
           m_entryBellPattern(&m_device, "entrybellpattern", "Entry Bell Pattern"),
           m_entryOpener(&m_device, "entryopener", "Door Opener"),
+          m_relay(&m_device, "relay", "Relay"),
 
           m_partyMode(&m_device, "partymode", "Party Mode"),
 
@@ -143,6 +144,11 @@ public:
         return m_entryOpener;
     }
 
+    const MqttSwitch &getRelay() const
+    {
+        return m_relay;
+    }
+
     const MqttSwitch &getPartyMode() const
     {
         return m_partyMode;
@@ -208,7 +214,7 @@ public:
         return m_diagnosticsMqttDisconnectCounter;
     }
 
-    void publishOnOffEdgeSwitch(MqttSwitch &entity)
+    void publishOnOffEdgeSwitch(const MqttSwitch &entity)
     {
         publishMqttState(entity, entity.getOnState());
         delay(1000);
@@ -237,11 +243,13 @@ public:
         publishConfig(m_entryBell);
         publishConfig(m_entryBellPattern);
         publishConfig(m_entryOpener);
+        publishConfig(m_relay);
 
         publishConfig(m_partyMode);
 
         publishConfig(m_bus);
 
+        // config elements
         publishConfig(m_configCodeApartmentDoorBell);
         publishConfig(m_configCodeEntryDoorBell);
         publishConfig(m_configCodeHandsetLiftup);
@@ -332,6 +340,13 @@ public:
             log_error("Failed to publish tcs data to %s", m_bus.getStateTopic());
         }
     }
+    void publishMqttState(const MqttEntity &entity, const char *state)
+    {
+        if (!m_client->publish(entity.getStateTopic(), state))
+        {
+            log_error("Failed to publish state to %s", entity.getStateTopic());
+        }
+    }
 
 private:
     PubSubClient *m_client;
@@ -343,7 +358,7 @@ private:
     MqttSiren m_entryBell;
     MqttBinarySensor m_entryBellPattern;
     MqttSwitch m_entryOpener;
-
+    MqttSwitch m_relay;
     MqttSwitch m_partyMode;
 
     MqttText m_bus;
@@ -398,11 +413,5 @@ private:
         m_client->publish(entity.getStateTopic(), state);
     }
 
-    void publishMqttState(MqttEntity &entity, const char *state)
-    {
-        if (!m_client->publish(entity.getStateTopic(), state))
-        {
-            log_error("Failed to publish state to %s", entity.getStateTopic());
-        }
-    }
+    
 };
